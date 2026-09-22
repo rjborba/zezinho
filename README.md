@@ -1,36 +1,48 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Zezinho
 
-## Getting Started
+Aplicativo mobile-first para cadastrar itens e registrar entradas de estoque.
 
-First, run the development server:
+O logo usa uma ilustração cartoon personalizada do Zezinho.
+
+## O que já está pronto
+
+- Cadastro de itens em unidade, mililitros ou quilos
+- Arquivamento e desarquivamento de itens
+- Registro de compras com a quantidade adquirida e o saldo que ainda restava
+- Última reposição calculada automaticamente
+- Estimativa de consumo médio por dia após duas compras do mesmo item
+- Histórico das entradas mais recentes
+- Interface responsiva, otimizada para celular
+- Banco preparado para Supabase
+- Projeto pronto para publicar na Vercel
+
+## Rodar localmente
 
 ```bash
+npm install
+cp .env.example .env.local
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Sem as variáveis do Supabase, o app abre em modo de demonstração e não salva alterações.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Configurar o Supabase
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Crie um projeto em [supabase.com](https://supabase.com).
+2. Abra o **SQL Editor** e execute, em ordem, os arquivos da pasta `supabase/migrations`.
+3. No painel do projeto, abra **Connect** e copie a URL e a chave publicável.
+4. Preencha `.env.local`:
 
-## Learn More
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://seu-projeto.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_sua_chave
+```
 
-To learn more about Next.js, take a look at the following resources:
+> Esta primeira versão é um estoque compartilhado e não possui login. As políticas do banco permitem leitura e cadastro com a chave publicável. Antes de usar com dados sensíveis ou abrir o endereço ao público, adicione autenticação.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Publicar na Vercel
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. Envie este projeto para um repositório Git.
+2. Importe o repositório em [vercel.com/new](https://vercel.com/new).
+3. Cadastre as duas variáveis do `.env.example` em **Environment Variables**.
+4. Publique. A Vercel detecta o Next.js automaticamente.
