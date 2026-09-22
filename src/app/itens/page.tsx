@@ -7,8 +7,6 @@ import { SetupNotice } from "@/components/setup-notice";
 import { getInventory } from "@/lib/inventory";
 import { unitLabel } from "@/lib/units";
 
-export const dynamic = "force-dynamic";
-
 export default async function ItemsPage() {
   const { items, archivedItems, configured, error } = await getInventory();
 

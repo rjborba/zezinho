@@ -9,6 +9,7 @@ O logo usa uma ilustração cartoon personalizada do Zezinho.
 - Cadastro de itens em unidade, mililitros ou quilos
 - Arquivamento e desarquivamento de itens
 - Registro de compras com a quantidade adquirida e o saldo que ainda restava
+- Edição e exclusão de entradas já registradas
 - Última reposição calculada automaticamente
 - Estimativa de consumo médio por dia após duas compras do mesmo item
 - Histórico das entradas mais recentes

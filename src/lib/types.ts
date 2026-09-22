@@ -15,6 +15,7 @@ export type InventoryItem = {
 
 export type StockEntry = {
   id: string;
+  itemId: string;
   itemName: string;
   unit: StockUnit;
   quantity: number;

@@ -23,6 +23,7 @@ export function BottomNav() {
             <Link
               key={href}
               href={href}
+              prefetch
               className={isActive ? "is-active" : undefined}
               aria-current={isActive ? "page" : undefined}
             >

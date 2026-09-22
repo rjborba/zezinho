@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 
 import type { ActionState } from "@/lib/action-state";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
@@ -42,6 +42,7 @@ export async function createItemAction(
   revalidatePath("/");
   revalidatePath("/itens");
   revalidatePath("/entradas");
+  updateTag("inventory");
   return { status: "success", message: `${name} foi cadastrado.` };
 }
 
@@ -111,7 +112,88 @@ export async function createEntryAction(
   revalidatePath("/");
   revalidatePath("/itens");
   revalidatePath("/entradas");
+  updateTag("inventory");
   return { status: "success", message: `Entrada de ${item.name} registrada.` };
+}
+
+export async function updateEntryAction(
+  _previousState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  if (!isSupabaseConfigured()) return configurationError();
+
+  const entryId = String(formData.get("entryId") ?? "");
+  const itemId = String(formData.get("itemId") ?? "");
+  const quantity = Number(
+    String(formData.get("quantity") ?? "").replace(",", "."),
+  );
+  const remainingQuantity = Number(
+    String(formData.get("remainingQuantity") ?? "").replace(",", "."),
+  );
+
+  if (!entryId || !itemId || !Number.isFinite(quantity) || quantity <= 0) {
+    return { status: "error", message: "Revise a quantidade comprada." };
+  }
+
+  if (!Number.isFinite(remainingQuantity) || remainingQuantity < 0) {
+    return { status: "error", message: "Revise quanto ainda restava." };
+  }
+
+  const supabase = getSupabase();
+  const { data: item, error: itemError } = await supabase
+    .from("items")
+    .select("unit")
+    .eq("id", itemId)
+    .single();
+
+  if (itemError || !item) {
+    return { status: "error", message: "Item não encontrado." };
+  }
+
+  if (
+    item.unit === "unidade" &&
+    (!Number.isInteger(quantity) || !Number.isInteger(remainingQuantity))
+  ) {
+    return { status: "error", message: "Use números inteiros para unidades." };
+  }
+
+  const { error } = await supabase
+    .from("stock_entries")
+    .update({
+      item_id: itemId,
+      quantity,
+      remaining_quantity: remainingQuantity,
+    })
+    .eq("id", entryId);
+
+  if (error) {
+    return { status: "error", message: "Não foi possível salvar a alteração." };
+  }
+
+  updateTag("inventory");
+  revalidatePath("/");
+  revalidatePath("/itens");
+  revalidatePath("/entradas");
+  return { status: "success", message: "Entrada atualizada." };
+}
+
+export async function deleteEntryAction(formData: FormData): Promise<void> {
+  if (!isSupabaseConfigured()) return;
+
+  const entryId = String(formData.get("entryId") ?? "");
+  if (!entryId) return;
+
+  const { error } = await getSupabase()
+    .from("stock_entries")
+    .delete()
+    .eq("id", entryId);
+
+  if (error) return;
+
+  updateTag("inventory");
+  revalidatePath("/");
+  revalidatePath("/itens");
+  revalidatePath("/entradas");
 }
 
 export async function setItemArchivedAction(formData: FormData): Promise<void> {
@@ -132,4 +214,5 @@ export async function setItemArchivedAction(formData: FormData): Promise<void> {
   revalidatePath("/");
   revalidatePath("/itens");
   revalidatePath("/entradas");
+  updateTag("inventory");
 }

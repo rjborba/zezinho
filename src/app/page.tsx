@@ -6,8 +6,6 @@ import { SetupNotice } from "@/components/setup-notice";
 import { getInventory } from "@/lib/inventory";
 import { formatQuantity, unitLabel } from "@/lib/units";
 
-export const dynamic = "force-dynamic";
-
 export default async function Home() {
   const { items, configured, error } = await getInventory();
 

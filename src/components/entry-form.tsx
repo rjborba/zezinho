@@ -4,6 +4,7 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { Check, LoaderCircle } from "lucide-react";
 
 import { createEntryAction } from "@/app/actions";
+import { SearchableItemSelect } from "@/components/searchable-item-select";
 import { initialActionState } from "@/lib/action-state";
 import type { InventoryItem } from "@/lib/types";
 import { unitLabel } from "@/lib/units";
@@ -34,7 +35,7 @@ export function EntryForm({
         quantityInput.focus();
       }
       if (remainingInput instanceof HTMLInputElement) {
-        remainingInput.value = "";
+        remainingInput.value = "0";
       }
     }
   }, [state]);
@@ -43,20 +44,13 @@ export function EntryForm({
     <form ref={formRef} action={formAction} className="stack-form">
       <div className="field-group">
         <label htmlFor="itemId">Item</label>
-        <select
+        <SearchableItemSelect
           id="itemId"
-          name="itemId"
-          value={selectedId}
-          onChange={(event) => setSelectedId(event.target.value)}
+          items={items}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
           disabled={disabled || pending}
-          required
-        >
-          {items.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.name}
-            </option>
-          ))}
-        </select>
+        />
       </div>
 
       <div className="field-group">
@@ -86,7 +80,7 @@ export function EntryForm({
             name="remainingQuantity"
             type="number"
             inputMode="decimal"
-            placeholder={selectedItem?.unit === "unidade" ? "2" : "0,0"}
+            defaultValue={0}
             min="0"
             step={selectedItem?.unit === "unidade" ? "1" : "0.001"}
             disabled={disabled || pending}

@@ -1,3 +1,5 @@
+import { cacheLife, cacheTag } from "next/cache";
+
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import type { InventoryData, StockEntry, StockUnit } from "@/lib/types";
 
@@ -50,6 +52,7 @@ const demoArchivedItems: InventoryData["archivedItems"] = [
 const demoEntries: InventoryData["recentEntries"] = [
   {
     id: "demo-entry-fralda",
+    itemId: "demo-fralda",
     itemName: "Fralda",
     unit: "unidade",
     quantity: 30,
@@ -75,6 +78,7 @@ type ItemRow = {
 
 type EntryRow = {
   id: string;
+  item_id: string;
   quantity: number | string;
   remaining_quantity: number | string | null;
   created_at: string;
@@ -82,6 +86,14 @@ type EntryRow = {
 };
 
 export async function getInventory(): Promise<InventoryData> {
+  "use cache";
+  cacheLife({
+    stale: 3_600,
+    revalidate: 300,
+    expire: 86_400,
+  });
+  cacheTag("inventory");
+
   if (!isSupabaseConfigured()) {
     return {
       items: demoItems,
@@ -103,9 +115,9 @@ export async function getInventory(): Promise<InventoryData> {
         .order("name"),
       supabase
         .from("stock_entries")
-        .select("id,quantity,remaining_quantity,created_at,items(name,unit)")
+        .select("id,item_id,quantity,remaining_quantity,created_at,items(name,unit)")
         .order("created_at", { ascending: false })
-        .limit(8),
+        .limit(20),
     ]);
 
     if (itemsResult.error || entriesResult.error) {
@@ -177,6 +189,7 @@ export async function getInventory(): Promise<InventoryData> {
         return [
           {
             id: entry.id,
+            itemId: entry.item_id,
             itemName: relatedItem.name,
             unit: relatedItem.unit,
             quantity: Number(entry.quantity),

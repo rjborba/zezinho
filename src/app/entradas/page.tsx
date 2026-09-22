@@ -3,14 +3,13 @@ import { ArrowRight, History, PackagePlus } from "lucide-react";
 
 import { AppShell } from "@/components/app-shell";
 import { EntryForm } from "@/components/entry-form";
+import { EntryHistory } from "@/components/entry-history";
 import { SetupNotice } from "@/components/setup-notice";
 import { getInventory } from "@/lib/inventory";
-import { formatDate, formatQuantity, unitLabel } from "@/lib/units";
-
-export const dynamic = "force-dynamic";
 
 export default async function EntriesPage() {
-  const { items, recentEntries, configured, error } = await getInventory();
+  const { items, archivedItems, recentEntries, configured, error } =
+    await getInventory();
 
   return (
     <AppShell>
@@ -66,37 +65,10 @@ export default async function EntriesPage() {
           <History aria-hidden="true" size={21} />
         </div>
 
-        {recentEntries.length > 0 ? (
-          <div className="simple-list">
-            {recentEntries.map((entry) => (
-              <article className="entry-row" key={entry.id}>
-                <div>
-                  <h3>{entry.itemName}</h3>
-                  <p>
-                    {formatDate(entry.createdAt)}
-                    {entry.remainingQuantity !== null && (
-                      <>
-                        {" · Restavam "}
-                        {formatQuantity(entry.remainingQuantity, entry.unit)}{" "}
-                        {unitLabel(
-                          entry.unit,
-                          "short",
-                          entry.remainingQuantity,
-                        )}
-                      </>
-                    )}
-                  </p>
-                </div>
-                <p className="entry-value">
-                  +{formatQuantity(entry.quantity, entry.unit)}{" "}
-                  {unitLabel(entry.unit, "short", entry.quantity)}
-                </p>
-              </article>
-            ))}
-          </div>
-        ) : (
-          <p className="list-placeholder">Nenhuma entrada registrada ainda.</p>
-        )}
+        <EntryHistory
+          entries={recentEntries}
+          items={[...items, ...archivedItems]}
+        />
       </section>
     </AppShell>
   );
