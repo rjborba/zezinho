@@ -11,6 +11,7 @@ const demoItems: InventoryData["items"] = [
     total: 32,
     averagePerDay: 4.2,
     hasEntries: true,
+    lastRestockedAt: new Date().toISOString(),
     archivedAt: null,
     createdAt: new Date().toISOString(),
   },
@@ -21,6 +22,7 @@ const demoItems: InventoryData["items"] = [
     total: 8,
     averagePerDay: 1.6,
     hasEntries: true,
+    lastRestockedAt: new Date().toISOString(),
     archivedAt: null,
     createdAt: new Date().toISOString(),
   },
@@ -31,6 +33,7 @@ const demoItems: InventoryData["items"] = [
     total: 10,
     averagePerDay: null,
     hasEntries: true,
+    lastRestockedAt: new Date().toISOString(),
     archivedAt: null,
     createdAt: new Date().toISOString(),
   },
@@ -44,6 +47,7 @@ const demoArchivedItems: InventoryData["archivedItems"] = [
     total: 0,
     averagePerDay: null,
     hasEntries: false,
+    lastRestockedAt: null,
     archivedAt: new Date().toISOString(),
     createdAt: new Date().toISOString(),
   },
@@ -174,6 +178,7 @@ export async function getInventory(): Promise<InventoryData> {
         averagePerDay:
           elapsedDaysTotal > 0 ? consumedTotal / elapsedDaysTotal : null,
         hasEntries: entries.length > 0,
+        lastRestockedAt: latestEntry?.created_at ?? null,
         archivedAt: item.archived_at,
       };
     });

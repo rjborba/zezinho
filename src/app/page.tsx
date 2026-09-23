@@ -4,7 +4,7 @@ import { ArrowRight, PackagePlus, Sparkles } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { SetupNotice } from "@/components/setup-notice";
 import { getInventory } from "@/lib/inventory";
-import { formatQuantity, unitLabel } from "@/lib/units";
+import { formatDateOnly, formatQuantity, unitLabel } from "@/lib/units";
 
 export default async function Home() {
   const { items, configured, error } = await getInventory();
@@ -56,6 +56,18 @@ export default async function Home() {
                 </div>
                 <div className="stock-info">
                   <h3>{item.name}</h3>
+                  <p>
+                    {item.lastRestockedAt ? (
+                      <>
+                        Última reposição: {" "}
+                        <time dateTime={item.lastRestockedAt}>
+                          {formatDateOnly(item.lastRestockedAt)}
+                        </time>
+                      </>
+                    ) : (
+                      "Sem reposição"
+                    )}
+                  </p>
                   <p>
                     {item.averagePerDay !== null
                       ? `Consumo médio: ${formatQuantity(item.averagePerDay, item.unit)} ${unitLabel(item.unit, "short", item.averagePerDay)}/dia`

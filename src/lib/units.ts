@@ -31,3 +31,12 @@ export function formatDate(date: string) {
     timeZone: "America/Recife",
   }).format(new Date(date));
 }
+
+export function formatDateOnly(date: string) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "America/Recife",
+  }).format(new Date(date));
+}

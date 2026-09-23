@@ -9,6 +9,7 @@ export type InventoryItem = {
   total: number;
   averagePerDay: number | null;
   hasEntries: boolean;
+  lastRestockedAt: string | null;
   archivedAt: string | null;
   createdAt: string;
 };

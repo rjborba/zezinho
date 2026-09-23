@@ -5,7 +5,31 @@ import { AppShell } from "@/components/app-shell";
 import { ItemForm } from "@/components/item-form";
 import { SetupNotice } from "@/components/setup-notice";
 import { getInventory } from "@/lib/inventory";
-import { unitLabel } from "@/lib/units";
+import { formatDateOnly, unitLabel } from "@/lib/units";
+
+function ItemDetails({
+  unit,
+  lastRestockedAt,
+}: {
+  unit: Parameters<typeof unitLabel>[0];
+  lastRestockedAt: string | null;
+}) {
+  return (
+    <p>
+      {unitLabel(unit, "long")} · {" "}
+      {lastRestockedAt ? (
+        <>
+          Última reposição: {" "}
+          <time dateTime={lastRestockedAt}>
+            {formatDateOnly(lastRestockedAt)}
+          </time>
+        </>
+      ) : (
+        "Sem reposição"
+      )}
+    </p>
+  );
+}
 
 export default async function ItemsPage() {
   const { items, archivedItems, configured, error } = await getInventory();
@@ -53,7 +77,10 @@ export default async function ItemsPage() {
                 </div>
                 <div>
                   <h3>{item.name}</h3>
-                  <p>{unitLabel(item.unit, "long")}</p>
+                  <ItemDetails
+                    unit={item.unit}
+                    lastRestockedAt={item.lastRestockedAt}
+                  />
                 </div>
                 <form action={setItemArchivedAction}>
                   <input type="hidden" name="itemId" value={item.id} />
@@ -97,7 +124,10 @@ export default async function ItemsPage() {
                 </div>
                 <div>
                   <h3>{item.name}</h3>
-                  <p>{unitLabel(item.unit, "long")}</p>
+                  <ItemDetails
+                    unit={item.unit}
+                    lastRestockedAt={item.lastRestockedAt}
+                  />
                 </div>
                 <form action={setItemArchivedAction}>
                   <input type="hidden" name="itemId" value={item.id} />
