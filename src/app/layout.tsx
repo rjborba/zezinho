@@ -14,6 +14,7 @@ export const metadata: Metadata = {
   },
   description: "Controle simples de itens e entradas de estoque.",
   applicationName: "Zezinho",
+  manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
