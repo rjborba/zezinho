@@ -1,44 +1,21 @@
-import { Archive, ArchiveRestore, Boxes } from "lucide-react";
-
-import { setItemArchivedAction } from "@/app/actions";
 import { AppShell } from "@/components/app-shell";
-import { ItemForm } from "@/components/item-form";
+import { ItemCreateDialog } from "@/components/item-create-dialog";
+import { ItemRow } from "@/components/item-row";
 import { SetupNotice } from "@/components/setup-notice";
 import { getInventory } from "@/lib/inventory";
-import { formatDateOnly, unitLabel } from "@/lib/units";
-
-function ItemDetails({
-  unit,
-  lastRestockedAt,
-}: {
-  unit: Parameters<typeof unitLabel>[0];
-  lastRestockedAt: string | null;
-}) {
-  return (
-    <p>
-      {unitLabel(unit, "long")} · {" "}
-      {lastRestockedAt ? (
-        <>
-          Última reposição: {" "}
-          <time dateTime={lastRestockedAt}>
-            {formatDateOnly(lastRestockedAt)}
-          </time>
-        </>
-      ) : (
-        "Sem reposição"
-      )}
-    </p>
-  );
-}
 
 export default async function ItemsPage() {
   const { items, archivedItems, configured, error } = await getInventory();
 
   return (
     <AppShell>
-      <header className="page-header">
-        <p className="eyebrow">Cadastro</p>
-        <h1 className="page-title">Itens</h1>
+      <header className="page-header page-header-with-action">
+        <div>
+          <p className="eyebrow">Cadastro</p>
+          <h1 className="page-title">Itens</h1>
+          <p className="page-description">Itens e medicamentos</p>
+        </div>
+        <ItemCreateDialog disabled={!configured || error} />
       </header>
 
       {!configured && <SetupNotice />}
@@ -47,18 +24,6 @@ export default async function ItemsPage() {
           Não foi possível carregar os itens.
         </div>
       )}
-
-      <section className="form-card" id="novo-item" aria-labelledby="new-item-title">
-        <div className="form-heading">
-          <span className="form-icon">
-            <Boxes aria-hidden="true" size={22} />
-          </span>
-          <div>
-            <h2 id="new-item-title">Novo item</h2>
-          </div>
-        </div>
-        <ItemForm disabled={!configured} />
-      </section>
 
       <section aria-labelledby="active-items-title">
         <div className="section-heading">
@@ -71,31 +36,19 @@ export default async function ItemsPage() {
         {items.length > 0 ? (
           <div className="simple-list">
             {items.map((item) => (
-              <article className="simple-row" key={item.id}>
-                <div className="item-avatar" aria-hidden="true">
-                  {item.name.charAt(0).toLocaleUpperCase("pt-BR")}
-                </div>
-                <div>
-                  <h3>{item.name}</h3>
-                  <ItemDetails
-                    unit={item.unit}
-                    lastRestockedAt={item.lastRestockedAt}
-                  />
-                </div>
-                <form action={setItemArchivedAction}>
-                  <input type="hidden" name="itemId" value={item.id} />
-                  <input type="hidden" name="shouldArchive" value="true" />
-                  <button
-                    className="archive-button"
-                    type="submit"
-                    disabled={!configured}
-                    aria-label={`Arquivar ${item.name}`}
-                  >
-                    <Archive aria-hidden="true" size={17} />
-                    Arquivar
-                  </button>
-                </form>
-              </article>
+              <ItemRow
+                key={item.id}
+                item={{
+                  id: item.id,
+                  name: item.name,
+                  unit: item.unit,
+                  kind: item.kind,
+                  medication: item.medication,
+                  lastRestockedAt: item.lastRestockedAt,
+                  archivedAt: item.archivedAt,
+                }}
+                disabled={!configured}
+              />
             ))}
           </div>
         ) : (
@@ -118,31 +71,19 @@ export default async function ItemsPage() {
         {archivedItems.length > 0 ? (
           <div className="simple-list archived-list">
             {archivedItems.map((item) => (
-              <article className="simple-row" key={item.id}>
-                <div className="item-avatar" aria-hidden="true">
-                  {item.name.charAt(0).toLocaleUpperCase("pt-BR")}
-                </div>
-                <div>
-                  <h3>{item.name}</h3>
-                  <ItemDetails
-                    unit={item.unit}
-                    lastRestockedAt={item.lastRestockedAt}
-                  />
-                </div>
-                <form action={setItemArchivedAction}>
-                  <input type="hidden" name="itemId" value={item.id} />
-                  <input type="hidden" name="shouldArchive" value="false" />
-                  <button
-                    className="archive-button restore-button"
-                    type="submit"
-                    disabled={!configured}
-                    aria-label={`Desarquivar ${item.name}`}
-                  >
-                    <ArchiveRestore aria-hidden="true" size={17} />
-                    Desarquivar
-                  </button>
-                </form>
-              </article>
+              <ItemRow
+                key={item.id}
+                item={{
+                  id: item.id,
+                  name: item.name,
+                  unit: item.unit,
+                  kind: item.kind,
+                  medication: item.medication,
+                  lastRestockedAt: item.lastRestockedAt,
+                  archivedAt: item.archivedAt,
+                }}
+                disabled={!configured}
+              />
             ))}
           </div>
         ) : (

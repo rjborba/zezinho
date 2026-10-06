@@ -1,13 +1,15 @@
 import { cacheLife, cacheTag } from "next/cache";
 
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
-import type { InventoryData, StockEntry, StockUnit } from "@/lib/types";
+import type { InventoryData, MedicationDetails, RecordKind, StockEntry, StockUnit } from "@/lib/types";
 
 const demoItems: InventoryData["items"] = [
   {
     id: "demo-fralda",
     name: "Fralda",
     unit: "unidade",
+    kind: "item",
+    medication: null,
     total: 32,
     averagePerDay: 4.2,
     hasEntries: true,
@@ -19,6 +21,8 @@ const demoItems: InventoryData["items"] = [
     id: "demo-lenco",
     name: "Lenço umedecido",
     unit: "unidade",
+    kind: "item",
+    medication: null,
     total: 8,
     averagePerDay: 1.6,
     hasEntries: true,
@@ -30,6 +34,8 @@ const demoItems: InventoryData["items"] = [
     id: "demo-sabonete",
     name: "Sabonete",
     unit: "unidade",
+    kind: "item",
+    medication: null,
     total: 10,
     averagePerDay: null,
     hasEntries: true,
@@ -44,6 +50,8 @@ const demoArchivedItems: InventoryData["archivedItems"] = [
     id: "demo-algodao",
     name: "Algodão",
     unit: "unidade",
+    kind: "item",
+    medication: null,
     total: 0,
     averagePerDay: null,
     hasEntries: false,
@@ -59,6 +67,7 @@ const demoEntries: InventoryData["recentEntries"] = [
     itemId: "demo-fralda",
     itemName: "Fralda",
     unit: "unidade",
+    kind: "item",
     quantity: 30,
     remainingQuantity: 2,
     createdAt: new Date().toISOString(),
@@ -75,6 +84,8 @@ type ItemRow = {
   id: string;
   name: string;
   unit: StockUnit;
+  kind: RecordKind;
+  medication: MedicationDetails | null;
   archived_at: string | null;
   created_at: string;
   stock_entries: ItemEntryRow[] | null;
@@ -86,7 +97,7 @@ type EntryRow = {
   quantity: number | string;
   remaining_quantity: number | string | null;
   created_at: string;
-  items: { name: string; unit: StockUnit } | { name: string; unit: StockUnit }[] | null;
+  items: { name: string; unit: StockUnit; kind: RecordKind } | { name: string; unit: StockUnit; kind: RecordKind }[] | null;
 };
 
 export async function getInventory(): Promise<InventoryData> {
@@ -114,12 +125,12 @@ export async function getInventory(): Promise<InventoryData> {
       supabase
         .from("items")
         .select(
-          "id,name,unit,archived_at,created_at,stock_entries(quantity,remaining_quantity,created_at)",
+          "id,name,unit,kind,medication,archived_at,created_at,stock_entries(quantity,remaining_quantity,created_at)",
         )
         .order("name"),
       supabase
         .from("stock_entries")
-        .select("id,item_id,quantity,remaining_quantity,created_at,items(name,unit)")
+        .select("id,item_id,quantity,remaining_quantity,created_at,items(name,unit,kind)")
         .order("created_at", { ascending: false })
         .limit(20),
     ]);
@@ -173,6 +184,8 @@ export async function getInventory(): Promise<InventoryData> {
         id: item.id,
         name: item.name,
         unit: item.unit,
+        kind: item.kind,
+        medication: item.medication,
         createdAt: item.created_at,
         total,
         averagePerDay:
@@ -197,6 +210,7 @@ export async function getInventory(): Promise<InventoryData> {
             itemId: entry.item_id,
             itemName: relatedItem.name,
             unit: relatedItem.unit,
+            kind: relatedItem.kind,
             quantity: Number(entry.quantity),
             remainingQuantity:
               entry.remaining_quantity === null

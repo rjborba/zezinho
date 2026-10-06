@@ -1,8 +1,7 @@
-import Link from "next/link";
-import { ArrowRight, History, PackagePlus } from "lucide-react";
+import { History } from "lucide-react";
 
 import { AppShell } from "@/components/app-shell";
-import { EntryForm } from "@/components/entry-form";
+import { EntryCreateDialog } from "@/components/entry-create-dialog";
 import { EntryHistory } from "@/components/entry-history";
 import { SetupNotice } from "@/components/setup-notice";
 import { getInventory } from "@/lib/inventory";
@@ -13,9 +12,12 @@ export default async function EntriesPage() {
 
   return (
     <AppShell>
-      <header className="page-header">
-        <p className="eyebrow">Movimentação</p>
-        <h1 className="page-title">Nova entrada</h1>
+      <header className="page-header page-header-with-action">
+        <div>
+          <p className="eyebrow">Movimentação</p>
+          <h1 className="page-title">Entradas</h1>
+        </div>
+        <EntryCreateDialog items={items} disabled={!configured || error} />
       </header>
 
       {!configured && <SetupNotice />}
@@ -25,35 +27,13 @@ export default async function EntriesPage() {
         </div>
       )}
 
-      <section className="form-card" aria-labelledby="new-entry-title">
-        <div className="form-heading">
-          <span className="form-icon">
-            <PackagePlus aria-hidden="true" size={22} />
-          </span>
-          <div>
-            <h2 id="new-entry-title">Registrar entrada</h2>
-            <p>Informe a compra e quanto ainda restava.</p>
-          </div>
-        </div>
-
-        {items.length > 0 ? (
-          <EntryForm items={items} disabled={!configured} />
-        ) : (
-          <div className="no-items-card">
-            <p>Cadastre um item antes de registrar uma entrada.</p>
-            <Link href="/itens#novo-item">
-              Cadastrar item <ArrowRight aria-hidden="true" size={18} />
-            </Link>
-          </div>
-        )}
-      </section>
-
       <aside className="consumption-tip">
         <strong>Como calculamos o consumo?</strong>
         <p>
           Na próxima compra, o Zezinho compara o saldo anterior com o que ainda
           restou. Assim, estima quanto foi usado por dia nesse intervalo.
         </p>
+        <p>A posologia dos medicamentos é apenas informativa e não dá baixa automática no estoque.</p>
       </aside>
 
       <section aria-labelledby="history-title">

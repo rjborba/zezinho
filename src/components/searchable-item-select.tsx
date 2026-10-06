@@ -18,12 +18,16 @@ export function SearchableItemSelect({
   selectedId,
   onSelect,
   disabled = false,
+  label = "Item",
+  autoFocus = false,
 }: {
   id: string;
   items: InventoryItem[];
   selectedId: string;
   onSelect: (itemId: string) => void;
   disabled?: boolean;
+  label?: string;
+  autoFocus?: boolean;
 }) {
   const selectedItem = items.find((item) => item.id === selectedId);
   const [query, setQuery] = useState(selectedItem?.name ?? "");
@@ -76,8 +80,9 @@ export function SearchableItemSelect({
           ref={inputRef}
           type="search"
           value={query}
-          placeholder="Buscar item..."
+          placeholder={`Buscar ${label.toLocaleLowerCase("pt-BR")}...`}
           autoComplete="off"
+          autoFocus={autoFocus}
           role="combobox"
           aria-autocomplete="list"
           aria-expanded={open}
@@ -125,7 +130,9 @@ export function SearchableItemSelect({
               chooseItem(filteredItems[activeIndex]);
             }
 
-            if (event.key === "Escape") {
+            if (event.key === "Escape" && open) {
+              event.preventDefault();
+              event.stopPropagation();
               setOpen(false);
               setQuery(selectedItem?.name ?? "");
             }
@@ -163,7 +170,7 @@ export function SearchableItemSelect({
               </button>
             ))
           ) : (
-            <p className="searchable-select-empty">Nenhum item encontrado.</p>
+            <p className="searchable-select-empty">Nenhum {label.toLocaleLowerCase("pt-BR")} encontrado.</p>
           )}
         </div>
       )}

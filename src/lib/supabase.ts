@@ -16,6 +16,11 @@ export function getSupabase() {
   }
 
   return createClient(url, key, {
+    // getInventory owns caching and the "inventory" invalidation tag. A
+    // separate Next fetch cache can otherwise return old stock after a save.
+    global: {
+      fetch: (input, init) => fetch(input, { ...init, cache: "no-store" }),
+    },
     auth: {
       autoRefreshToken: false,
       persistSession: false,

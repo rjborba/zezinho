@@ -12,13 +12,21 @@ export function unitLabel(
 
   if (unit === "unidade") return "unidades";
   if (unit === "ml") return "mililitros";
-  return "quilos";
+  if (unit === "kg") return "quilos";
+  if (unit === "mg") return "miligramas";
+  if (unit === "g") return "gramas";
+  return "gotas";
+}
+
+export function isCountUnit(unit: StockUnit) {
+  return unit === "unidade" || unit === "gotas";
 }
 
 export function formatQuantity(quantity: number, unit: StockUnit) {
   return new Intl.NumberFormat("pt-BR", {
     minimumFractionDigits: 0,
-    maximumFractionDigits: unit === "unidade" ? 0 : 3,
+    maximumFractionDigits:
+      isCountUnit(unit) && Number.isInteger(quantity) ? 0 : 3,
   }).format(quantity);
 }
 

@@ -3,8 +3,9 @@
 import { revalidatePath, updateTag } from "next/cache";
 
 import type { ActionState } from "@/lib/action-state";
+import { parseCatalogForm } from "@/lib/catalog-validation";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
-import { UNITS, type StockUnit } from "@/lib/types";
+import { isCountUnit } from "@/lib/units";
 
 function configurationError(): ActionState {
   return {
@@ -19,22 +20,14 @@ export async function createItemAction(
 ): Promise<ActionState> {
   if (!isSupabaseConfigured()) return configurationError();
 
-  const name = String(formData.get("name") ?? "").trim();
-  const unit = String(formData.get("unit") ?? "") as StockUnit;
-
-  if (name.length < 2 || name.length > 80) {
-    return { status: "error", message: "Informe um nome entre 2 e 80 caracteres." };
-  }
-
-  if (!UNITS.includes(unit)) {
-    return { status: "error", message: "Escolha uma unidade válida." };
-  }
-
-  const { error } = await getSupabase().from("items").insert({ name, unit });
+  const parsed = parseCatalogForm(formData);
+  if ("error" in parsed) return { status: "error", message: parsed.error };
+  const { name } = parsed.data;
+  const { error } = await getSupabase().from("items").insert(parsed.data);
 
   if (error) {
     if (error.code === "23505") {
-      return { status: "error", message: "Esse item já está cadastrado." };
+      return { status: "error", message: "Esse nome já está cadastrado." };
     }
     return { status: "error", message: "Não foi possível cadastrar. Tente novamente." };
   }
@@ -44,6 +37,46 @@ export async function createItemAction(
   revalidatePath("/entradas");
   updateTag("inventory");
   return { status: "success", message: `${name} foi cadastrado.` };
+}
+
+export async function updateItemAction(
+  _previousState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  if (!isSupabaseConfigured()) return configurationError();
+
+  const itemId = String(formData.get("itemId") ?? "");
+
+  if (!itemId) {
+    return { status: "error", message: "Item não encontrado." };
+  }
+
+  const parsed = parseCatalogForm(formData);
+  if ("error" in parsed) return { status: "error", message: parsed.error };
+
+  const { data, error } = await getSupabase()
+    .from("items")
+    .update(parsed.data)
+    .eq("id", itemId)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    if (error.code === "23505") {
+      return { status: "error", message: "Esse nome já está cadastrado." };
+    }
+    return { status: "error", message: "Não foi possível salvar a alteração." };
+  }
+
+  if (!data) {
+    return { status: "error", message: "Item não encontrado." };
+  }
+
+  updateTag("inventory");
+  revalidatePath("/");
+  revalidatePath("/itens");
+  revalidatePath("/entradas");
+  return { status: "success", message: parsed.data.kind === "medicamento" ? "Medicamento atualizado." : "Item atualizado." };
 }
 
 export async function createEntryAction(
@@ -78,7 +111,7 @@ export async function createEntryAction(
   const supabase = getSupabase();
   const { data: item, error: itemError } = await supabase
     .from("items")
-    .select("name,unit,archived_at")
+    .select("name,unit,kind,archived_at")
     .eq("id", itemId)
     .single();
 
@@ -90,11 +123,15 @@ export async function createEntryAction(
     return { status: "error", message: "Desarquive o item antes de dar entrada." };
   }
 
+  if (item.kind !== String(formData.get("kind") ?? "item")) {
+    return { status: "error", message: "Escolha uma opção do tipo selecionado." };
+  }
+
   if (
-    item.unit === "unidade" &&
+    isCountUnit(item.unit) &&
     (!Number.isInteger(quantity) || !Number.isInteger(remainingQuantity))
   ) {
-    return { status: "error", message: "Use um número inteiro para unidades." };
+    return { status: "error", message: "Use números inteiros para unidades ou gotas." };
   }
 
   const { error } = await supabase
@@ -142,7 +179,7 @@ export async function updateEntryAction(
   const supabase = getSupabase();
   const { data: item, error: itemError } = await supabase
     .from("items")
-    .select("unit")
+    .select("unit,kind")
     .eq("id", itemId)
     .single();
 
@@ -150,11 +187,15 @@ export async function updateEntryAction(
     return { status: "error", message: "Item não encontrado." };
   }
 
+  if (item.kind !== String(formData.get("kind") ?? "item")) {
+    return { status: "error", message: "Escolha uma opção do tipo selecionado." };
+  }
+
   if (
-    item.unit === "unidade" &&
+    isCountUnit(item.unit) &&
     (!Number.isInteger(quantity) || !Number.isInteger(remainingQuantity))
   ) {
-    return { status: "error", message: "Use números inteiros para unidades." };
+    return { status: "error", message: "Use números inteiros para unidades ou gotas." };
   }
 
   const { error } = await supabase

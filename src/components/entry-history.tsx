@@ -8,7 +8,7 @@ import { deleteEntryAction, updateEntryAction } from "@/app/actions";
 import { SearchableItemSelect } from "@/components/searchable-item-select";
 import { initialActionState } from "@/lib/action-state";
 import type { InventoryItem, StockEntry } from "@/lib/types";
-import { formatDate, formatQuantity, unitLabel } from "@/lib/units";
+import { formatDate, formatQuantity, isCountUnit, unitLabel } from "@/lib/units";
 
 function DeleteButton() {
   const { pending } = useFormStatus();
@@ -43,13 +43,16 @@ function EditableEntryRow({
     initialActionState,
   );
   const selectedItem =
-    items.find((item) => item.id === selectedItemId) ?? items[0];
+    items.find((item) => item.id === selectedItemId);
+  const availableItems = items.filter((item) => item.kind === entry.kind);
+  const countUnit = selectedItem ? isCountUnit(selectedItem.unit) : false;
 
   return (
     <article className="entry-card">
       <div className="entry-row">
         <div>
           <h3>{entry.itemName}</h3>
+          {entry.kind === "medicamento" && <span className="medication-badge">Medicamento</span>}
           <p>
             {formatDate(entry.createdAt)}
             {entry.remainingQuantity !== null && (
@@ -94,14 +97,16 @@ function EditableEntryRow({
       </div>
 
       {editing && (
-        <form action={formAction} className="entry-edit-form">
+        <form action={formAction} onReset={(event) => event.preventDefault()} className="entry-edit-form">
           <input type="hidden" name="entryId" value={entry.id} />
+          <input type="hidden" name="kind" value={entry.kind} />
 
           <div className="field-group">
-            <label htmlFor={`item-${entry.id}`}>Item</label>
+            <label htmlFor={`item-${entry.id}`}>{entry.kind === "medicamento" ? "Medicamento" : "Item"}</label>
             <SearchableItemSelect
               id={`item-${entry.id}`}
-              items={items}
+              items={availableItems}
+              label={entry.kind === "medicamento" ? "Medicamento" : "Item"}
               selectedId={selectedItemId}
               onSelect={setSelectedItemId}
               disabled={pending}
@@ -118,8 +123,8 @@ function EditableEntryRow({
                   type="number"
                   inputMode="decimal"
                   defaultValue={entry.quantity}
-                  min={selectedItem?.unit === "unidade" ? "1" : "0.001"}
-                  step={selectedItem?.unit === "unidade" ? "1" : "0.001"}
+                  min={countUnit ? "1" : "0.001"}
+                  step={countUnit ? "1" : "0.001"}
                   disabled={pending}
                   required
                 />
@@ -137,7 +142,7 @@ function EditableEntryRow({
                   inputMode="decimal"
                   defaultValue={entry.remainingQuantity ?? 0}
                   min="0"
-                  step={selectedItem?.unit === "unidade" ? "1" : "0.001"}
+                  step={countUnit ? "1" : "0.001"}
                   disabled={pending}
                   required
                 />
