@@ -10,6 +10,7 @@ O logo usa uma ilustração cartoon personalizada do Zezinho.
 - Cadastro em modal com escolha inicial entre Item e Medicamento
 - Medicamentos com posologia diária, por dias da semana ou livre; via de administração; período definido ou indeterminado; e dosagem
 - Um horário por dose nas posologias diária e semanal, exibido também nas Entradas
+- Agenda de medicamentos em `/agenda`, com visualizações de dia e semana, navegação por data e linha do horário atual de Recife; doses seguem os dias e o período de uso cadastrados, com detalhes ao tocar e indicação dos medicamentos sem horário definido
 - Próxima compra de medicamentos estimada pela última entrada, quantidade por dose, horários, dias da semana e período de uso; alerta vermelho quando restam 5 dias ou menos
 - Estoque de medicamentos em unidades, ml, mg, g ou gotas, independente da dosagem
 - Edição do nome e da unidade dos itens, mantendo os valores das entradas

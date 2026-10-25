@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { Boxes, Home, PackagePlus } from "lucide-react";
+import { Boxes, CalendarDays, Home, PackagePlus } from "lucide-react";
 import { usePathname } from "next/navigation";
 
 const links = [
   { href: "/", label: "Início", icon: Home },
+  { href: "/agenda", label: "Agenda", icon: CalendarDays },
   { href: "/itens", label: "Itens", icon: Boxes },
   { href: "/entradas", label: "Entrada", icon: PackagePlus },
 ];

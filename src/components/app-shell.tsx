@@ -3,9 +3,9 @@ import Image from "next/image";
 
 import { BottomNav } from "@/components/bottom-nav";
 
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({ children, wide = false }: { children: ReactNode; wide?: boolean }) {
   return (
-    <div className="app-frame">
+    <div className={`app-frame${wide ? " app-frame-wide" : ""}`}>
       <header className="topbar">
         <div className="brand-banner">
           <div className="brand-portrait">
