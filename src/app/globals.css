@@ -2208,6 +2208,26 @@ body:has(dialog[open]) {
   line-height: 1.5;
 }
 
+.calendar-event-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+}
+
+.calendar-route-badge {
+  display: inline-flex;
+  max-width: 100%;
+  padding: 2px 6px;
+  border: 1px solid #63736c66;
+  border-radius: 6px;
+  background: #ffffff99;
+  color: var(--ink);
+  font-size: 0.68rem;
+  font-weight: 650;
+  line-height: 1.3;
+}
+
 .calendar-event > svg {
   flex-shrink: 0;
   opacity: 0.65;

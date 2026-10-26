@@ -142,6 +142,40 @@ test("calendar cards show and announce special control on each dose, including u
   assert.equal((html.match(/aria-label="[^"]*Controle especial\. Ver detalhes"/g) ?? []).length, 3);
 });
 
+test("calendar route badges use registered labels on every dose and custom untimed routes without inventing missing routes", () => {
+  const { MedicationCalendar } = loadSource("components/medication-calendar.tsx", {
+    "next/link": { default: ({ children, ...props }) => createElement("a", props, children) },
+    "@/lib/use-current-time": { useCurrentTime: () => Date.parse("2026-10-25T12:00:00-03:00") },
+    "@/components/modal": { Modal: () => null },
+  });
+  const { ADMINISTRATION_ROUTES } = loadSource("lib/medications.ts", {});
+  const routes = ADMINISTRATION_ROUTES.filter((route) => route.value !== "outra");
+  const items = routes.map((route) => scheduledMedication({
+    id: route.value, name: route.value, requiresSpecialControl: false,
+    medication: { ...scheduledMedication().medication, administrationRoute: route.value },
+  }));
+  items.push(scheduledMedication({
+    id: "custom", name: "Personalizado",
+    medication: { ...scheduledMedication().medication, administrationRoute: "outra", customRoute: "Via personalizada",
+      posology: { type: "free", instructions: "Conforme orientação" } },
+  }));
+  const before = JSON.stringify(items);
+  const render = (values) => renderToStaticMarkup(createElement(MedicationCalendar, { items: values }));
+  const html = render(items);
+  assert.equal((html.match(/class="calendar-route-badge"/g) ?? []).length, routes.length * 2 + 1);
+  for (const route of routes) {
+    assert.equal(html.split(`class="calendar-route-badge">${route.label}</span>`).length - 1, 2);
+    assert.ok(html.includes(`Via: ${route.label}`));
+  }
+  assert.match(html, /class="calendar-route-badge">Via personalizada<\/span>/);
+  assert.match(html, /aria-label="Horário não definido, Personalizado,[^"]*Via: Via personalizada, Controle especial/);
+  assert.equal(JSON.stringify(items), before);
+  for (const medication of [null, { ...scheduledMedication().medication, administrationRoute: "", customRoute: "" }]) {
+    const incomplete = render([scheduledMedication({ medication, requiresSpecialControl: false })]);
+    assert.doesNotMatch(incomplete, /calendar-route-badge|calendar-event-badges|Via:/);
+  }
+});
+
 test("the A4 print sheet renders the same badge at every registered dose only for flagged medications", () => {
   const { MedicationPrintSheet } = loadSource("components/medication-print-sheet.tsx", {
     "./medication-print.module.css": { default: new Proxy({}, { get: (_target, name) => String(name) }) },

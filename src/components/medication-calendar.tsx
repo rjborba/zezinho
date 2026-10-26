@@ -13,7 +13,7 @@ import {
   getMedicationCalendar, getNextMedicationGroup, isCalendarDate,
   type CalendarMedication, type CalendarView,
 } from "@/lib/medication-calendar";
-import { dosageLabel } from "@/lib/medications";
+import { dosageLabel, routeLabel } from "@/lib/medications";
 import type { MedicationDetails } from "@/lib/types";
 import { useCurrentTime } from "@/lib/use-current-time";
 
@@ -38,14 +38,20 @@ function CalendarMedicationCard({ name, medication, requiresSpecialControl, time
   onSelect: () => void;
 }) {
   const dosage = medication ? dosageLabel(medication) : "Cadastro incompleto";
+  const administrationRoute = medication ? routeLabel(medication).trim() : "";
 
   return (
-    <button type="button" className={`calendar-event ${color === undefined ? "calendar-event-unscheduled" : `calendar-event-color-${color}`}`} aria-label={`${[timeLabel, name, medication?.otherNames?.join(", "), dosage, requiresSpecialControl ? "Controle especial" : null].filter(Boolean).join(", ")}. Ver detalhes`} onClick={onSelect}>
+    <button type="button" className={`calendar-event ${color === undefined ? "calendar-event-unscheduled" : `calendar-event-color-${color}`}`} aria-label={`${[timeLabel, name, medication?.otherNames?.join(", "), dosage, administrationRoute ? `Via: ${administrationRoute}` : null, requiresSpecialControl ? "Controle especial" : null].filter(Boolean).join(", ")}. Ver detalhes`} onClick={onSelect}>
       <span className="calendar-event-content">
         <span className="calendar-event-name">
           <strong>{name}</strong>
           {!!medication?.otherNames?.length && <span className="calendar-event-commercial-names">{medication.otherNames.join(" · ")}</span>}
-          <SpecialControlBadge required={requiresSpecialControl} />
+          {(administrationRoute || requiresSpecialControl) && (
+            <span className="calendar-event-badges">
+              {administrationRoute && <span className="calendar-route-badge">{administrationRoute}</span>}
+              <SpecialControlBadge required={requiresSpecialControl} />
+            </span>
+          )}
         </span>
         <span>{dosage}</span>
       </span>
