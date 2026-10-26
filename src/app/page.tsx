@@ -1,32 +1,49 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { ArrowRight, PackagePlus, Pill, Sparkles } from "lucide-react";
 
 import { AppShell } from "@/components/app-shell";
-import { MedicationRestockForecast } from "@/components/medication-restock-forecast";
+import { HomeMedicationStockList } from "@/components/home-medication-stock-list";
+import { ScheduledEntryRefresh } from "@/components/scheduled-entry-refresh";
 import { SetupNotice } from "@/components/setup-notice";
 import { getInventory } from "@/lib/inventory";
-import { dosageLabel } from "@/lib/medications";
+import { medicationTitle } from "@/lib/medications";
 import { formatDateOnly, formatQuantity, unitLabel } from "@/lib/units";
 
-export default async function Home() {
-  const { items, configured, error } = await getInventory();
+export default function Home() {
+  return (
+    <AppShell>
+      <Suspense fallback={<p className="list-placeholder" role="status">Carregando estoque...</p>}>
+        <HomeContent />
+      </Suspense>
+    </AppShell>
+  );
+}
+
+async function HomeContent() {
+  const { items, configured, error, nextScheduledEntryAt } = await getInventory();
   const stockSections = [
     {
       id: "medications-stock-title",
       title: "Medicamentos",
       singular: "medicamento",
+      href: "/medicamentos",
+      createHref: "/medicamentos#novo-medicamento",
       items: items.filter((item) => item.kind === "medicamento"),
     },
     {
       id: "items-stock-title",
       title: "Itens",
       singular: "item",
+      href: "/itens",
+      createHref: "/itens#novo-item",
       items: items.filter((item) => item.kind === "item"),
     },
   ];
 
   return (
-    <AppShell>
+    <>
+      <ScheduledEntryRefresh at={nextScheduledEntryAt} />
       {!configured && <SetupNotice />}
       {error && (
         <div className="notice notice-error" role="alert">
@@ -58,10 +75,10 @@ export default async function Home() {
           <div className="section-heading">
             <div>
               <h2 id={section.id}>{section.title}</h2>
-              <p>Compra mais recente + o que ainda restava</p>
+              <p>{section.singular === "medicamento" ? "Nome, marca, dosagem e estoque" : "Compra mais recente + o que ainda restava"}</p>
             </div>
             <Link
-              href="/itens"
+              href={section.href}
               aria-label={`Ver cadastro de ${section.title.toLocaleLowerCase("pt-BR")}`}
             >
               Ver cadastro
@@ -69,64 +86,49 @@ export default async function Home() {
           </div>
 
           {section.items.length > 0 ? (
-            <div className="stock-list">
-              {section.items.map((item) => (
-                <article className="stock-row" key={item.id}>
-                  <div className="item-avatar" aria-hidden="true">
-                    {item.kind === "medicamento" ? (
-                      <Pill size={22} />
-                    ) : (
-                      item.name.charAt(0).toLocaleUpperCase("pt-BR")
-                    )}
-                  </div>
-                  <div className="stock-info">
-                    <h3>{item.name}</h3>
-                    {item.medication && (
-                      <span className="medication-badge">
-                        Medicamento · {dosageLabel(item.medication)}
+            section.singular === "medicamento" ? (
+              <HomeMedicationStockList items={section.items} />
+            ) : (
+              <div className="stock-list">
+                {section.items.map((item) => (
+                  <article className="stock-row" key={item.id}>
+                    <div className="item-avatar" aria-hidden="true">
+                      {item.name.charAt(0).toLocaleUpperCase("pt-BR")}
+                    </div>
+                    <div className="stock-info">
+                      <h3>{medicationTitle(item.name, item.medication)}</h3>
+                      <p>
+                        {item.lastRestockedAt ? (
+                          <>
+                            Última reposição: {" "}
+                            <time dateTime={item.lastRestockedAt}>
+                              {formatDateOnly(item.lastRestockedAt)}
+                            </time>
+                          </>
+                        ) : (
+                          "Sem reposição"
+                        )}
+                      </p>
+                      <p>
+                        {item.averagePerDay !== null
+                          ? `Consumo médio: ${formatQuantity(item.averagePerDay, item.unit)} ${unitLabel(item.unit, "short", item.averagePerDay)}/dia`
+                          : "Média disponível após a próxima compra"}
+                      </p>
+                    </div>
+                    <p className="stock-value">
+                      <strong>
+                        {item.hasEntries ? formatQuantity(item.total, item.unit) : "—"}
+                      </strong>
+                      <span>
+                        {item.hasEntries
+                          ? unitLabel(item.unit, "short", item.total)
+                          : "sem entrada"}
                       </span>
-                    )}
-                    <p>
-                      {item.lastRestockedAt ? (
-                        <>
-                          Última reposição: {" "}
-                          <time dateTime={item.lastRestockedAt}>
-                            {formatDateOnly(item.lastRestockedAt)}
-                          </time>
-                        </>
-                      ) : (
-                        "Sem reposição"
-                      )}
                     </p>
-                    <p>
-                      {item.averagePerDay !== null
-                        ? `Consumo médio: ${formatQuantity(item.averagePerDay, item.unit)} ${unitLabel(item.unit, "short", item.averagePerDay)}/dia`
-                        : "Média disponível após a próxima compra"}
-                    </p>
-                    {item.kind === "medicamento" && (
-                      <MedicationRestockForecast item={{
-                        kind: item.kind,
-                        medication: item.medication,
-                        unit: item.unit,
-                        total: item.total,
-                        hasEntries: item.hasEntries,
-                        lastRestockedAt: item.lastRestockedAt,
-                      }} />
-                    )}
-                  </div>
-                  <p className="stock-value">
-                    <strong>
-                      {item.hasEntries ? formatQuantity(item.total, item.unit) : "—"}
-                    </strong>
-                    <span>
-                      {item.hasEntries
-                        ? unitLabel(item.unit, "short", item.total)
-                        : "sem entrada"}
-                    </span>
-                  </p>
-                </article>
-              ))}
-            </div>
+                  </article>
+                ))}
+              </div>
+            )
           ) : (
             <div className="empty-state">
               <span className="empty-icon">
@@ -141,13 +143,13 @@ export default async function Home() {
                 Cadastre o primeiro {section.singular} para depois registrar as
                 entradas.
               </p>
-              <Link className="button button-secondary" href="/itens#novo-item">
+              <Link className="button button-secondary" href={section.createHref}>
                 Cadastrar primeiro {section.singular}
               </Link>
             </div>
           )}
         </section>
       ))}
-    </AppShell>
+    </>
   );
 }

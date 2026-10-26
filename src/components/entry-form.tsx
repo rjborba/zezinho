@@ -4,9 +4,12 @@ import { useActionState, useId, useState } from "react";
 import { Check, LoaderCircle } from "lucide-react";
 
 import { createEntryAction } from "@/app/actions";
+import { EntryDateField } from "@/components/entry-date-field";
 import { SearchableItemSelect } from "@/components/searchable-item-select";
 import { MedicationSummary } from "@/components/medication-summary";
+import { MedicationCommercialNames } from "@/components/medication-commercial-names";
 import { initialActionState, type ActionState } from "@/lib/action-state";
+import { formatEntryDateTime } from "@/lib/entry-dates";
 import type { InventoryItem, RecordKind } from "@/lib/types";
 import { isCountUnit, unitLabel } from "@/lib/units";
 
@@ -25,7 +28,7 @@ export function EntryForm({
   onSuccess?: (message: string) => void;
   onPendingChange?: (pending: boolean) => void;
 }) {
-  const [state, formAction, pending] = useActionState(
+  const [actionState, formAction, pending] = useActionState(
     async (previousState: ActionState, formData: FormData) => {
       onPendingChange?.(true);
       try {
@@ -38,6 +41,8 @@ export function EntryForm({
     },
     initialActionState,
   );
+  const state = actionState ?? initialActionState;
+  const [entryDate] = useState(() => formatEntryDateTime(new Date()));
   const [selectedId, setSelectedId] = useState(items[0]?.id ?? "");
   const [quantity, setQuantity] = useState("");
   const [remainingQuantity, setRemainingQuantity] = useState("0");
@@ -61,8 +66,10 @@ export function EntryForm({
           disabled={disabled || pending}
         />
       </div>
-      {selectedItem?.medication && <MedicationSummary medication={selectedItem.medication} />}
+      {selectedItem?.medication && <><MedicationCommercialNames medication={selectedItem.medication} /><MedicationSummary medication={selectedItem.medication} /></>}
       {kind === "medicamento" && selectedItem && <p className="field-hint">Registre o estoque em {unitLabel(selectedItem.unit, "long")}, sem alterar a dosagem do medicamento.</p>}
+
+      <EntryDateField id={`${id}-date`} defaultValue={entryDate} disabled={disabled || pending} />
 
       <div className="field-group">
         <label htmlFor={`${id}-quantity`}>Quanto foi comprado?</label>
@@ -86,7 +93,7 @@ export function EntryForm({
 
       <div className="field-group">
         <label htmlFor={`${id}-remaining`}>Quanto ainda tinha?</label>
-        <p className="field-hint">Conte o que restava antes de guardar a nova compra.</p>
+        <p className="field-hint">Informe o saldo antes dessa compra, na data escolhida.</p>
         <div className="quantity-input">
           <input
             id={`${id}-remaining`}

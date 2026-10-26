@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { AlertTriangle, CalendarClock } from "lucide-react";
 
 import { getMedicationRestockForecast, type MedicationRestockForecast as Forecast, type MedicationStock } from "@/lib/medication-stock";
@@ -81,6 +81,9 @@ export function MedicationRestockStatus({ forecast, unit }: { forecast: Forecast
 }
 
 export function MedicationRestockForecast({ item }: { item: MedicationStock }) {
+  // A newly activated entry can be newer than the shared minute snapshot.
+  // Refresh immediately so it is not mistaken for a future purchase.
+  useEffect(refreshClock, [item.lastRestockedAt]);
   const now = useSyncExternalStore(subscribeToClock, getClock, getServerClock);
   const forecast = now === null ? null : getMedicationRestockForecast(item, new Date(now));
   if (now === null) return <div className="medication-forecast medication-forecast-muted"><p>Calculando próxima compra...</p></div>;

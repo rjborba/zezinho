@@ -28,10 +28,10 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({ children, modal }: LayoutProps<"/">) {
   return (
     <html lang="pt-BR" className={geist.variable}>
-      <body>{children}</body>
+      <body>{children}{modal}</body>
     </html>
   );
 }

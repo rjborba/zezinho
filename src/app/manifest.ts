@@ -59,6 +59,18 @@ export default function manifest(): MetadataRoute.Manifest {
           },
         ],
       },
+      {
+        name: "Ver medicamentos",
+        short_name: "Medicamentos",
+        description: "Abrir a lista de medicamentos.",
+        url: "/medicamentos",
+        icons: [
+          {
+            src: "/pwa-icon-192.png",
+            sizes: "192x192",
+          },
+        ],
+      },
     ],
   };
 }

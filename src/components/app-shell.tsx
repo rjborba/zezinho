@@ -8,17 +8,19 @@ export function AppShell({ children, wide = false }: { children: ReactNode; wide
     <div className={`app-frame${wide ? " app-frame-wide" : ""}`}>
       <header className="topbar">
         <div className="brand-banner">
-          <div className="brand-portrait">
-            <Image
-              src="/zezinho-logo.png"
-              alt=""
-              width={96}
-              height={96}
-              priority
-              aria-hidden="true"
-            />
+          <div className="brand-identity">
+            <div className="brand-portrait">
+              <Image
+                src="/zezinho-logo.png"
+                alt=""
+                width={96}
+                height={96}
+                priority
+                aria-hidden="true"
+              />
+            </div>
+            <strong>Zezinho</strong>
           </div>
-          <strong>Zezinho</strong>
         </div>
       </header>
       <main className="page-content">{children}</main>

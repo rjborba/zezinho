@@ -5,8 +5,10 @@ import { useFormStatus } from "react-dom";
 import { Check, LoaderCircle, Pencil, Trash2, X } from "lucide-react";
 
 import { deleteEntryAction, updateEntryAction } from "@/app/actions";
+import { EntryDateField } from "@/components/entry-date-field";
 import { SearchableItemSelect } from "@/components/searchable-item-select";
 import { initialActionState } from "@/lib/action-state";
+import { formatEntryDateTime } from "@/lib/entry-dates";
 import type { InventoryItem, StockEntry } from "@/lib/types";
 import { formatDate, formatQuantity, isCountUnit, unitLabel } from "@/lib/units";
 
@@ -38,10 +40,11 @@ function EditableEntryRow({
 }) {
   const [editing, setEditing] = useState(false);
   const [selectedItemId, setSelectedItemId] = useState(entry.itemId);
-  const [state, formAction, pending] = useActionState(
+  const [actionState, formAction, pending] = useActionState(
     updateEntryAction,
     initialActionState,
   );
+  const state = actionState ?? initialActionState;
   const selectedItem =
     items.find((item) => item.id === selectedItemId);
   const availableItems = items.filter((item) => item.kind === entry.kind);
@@ -53,8 +56,9 @@ function EditableEntryRow({
         <div>
           <h3>{entry.itemName}</h3>
           {entry.kind === "medicamento" && <span className="medication-badge">Medicamento</span>}
+          {entry.scheduled && <span className="scheduled-entry-badge">Agendada</span>}
           <p>
-            {formatDate(entry.createdAt)}
+            <time dateTime={entry.createdAt}>{formatDate(entry.createdAt)}</time>
             {entry.remainingQuantity !== null && (
               <>
                 {" · Restavam "}
@@ -112,6 +116,12 @@ function EditableEntryRow({
               disabled={pending}
             />
           </div>
+
+          <EntryDateField
+            id={`date-${entry.id}`}
+            defaultValue={formatEntryDateTime(entry.createdAt)}
+            disabled={pending}
+          />
 
           <div className="entry-edit-grid">
             <div className="field-group">

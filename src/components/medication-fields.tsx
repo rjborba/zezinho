@@ -1,7 +1,8 @@
 "use client";
 
 import { useId, useState } from "react";
-import { ADMINISTRATION_ROUTES, DOSAGE_UNITS, WEEKDAYS } from "@/lib/medications";
+import { MedicationDosageFields } from "@/components/medication-dosage-fields";
+import { ADMINISTRATION_ROUTES, WEEKDAYS } from "@/lib/medications";
 import type { MedicationDetails } from "@/lib/types";
 
 export function MedicationFields({ medication, disabled }: { medication?: MedicationDetails | null; disabled: boolean }) {
@@ -21,10 +22,6 @@ export function MedicationFields({ medication, disabled }: { medication?: Medica
   const [periodType, setPeriodType] = useState(medication?.period.type ?? "indefinite");
   const [startDate, setStartDate] = useState(medication?.period.type === "range" ? medication.period.startDate : "");
   const [endDate, setEndDate] = useState(medication?.period.type === "range" ? medication.period.endDate : "");
-  const [amount, setAmount] = useState(medication ? String(medication.dosage.amount) : "");
-  const knownDosageUnit = !medication || (DOSAGE_UNITS as readonly string[]).includes(medication.dosage.unit);
-  const [dosageUnit, setDosageUnit] = useState(knownDosageUnit ? medication?.dosage.unit ?? "mg" : "outra");
-  const [customDosageUnit, setCustomDosageUnit] = useState(knownDosageUnit ? "" : medication?.dosage.unit ?? "");
 
   return (
     <fieldset className="medication-fields stack-form" disabled={disabled}>
@@ -130,28 +127,7 @@ export function MedicationFields({ medication, disabled }: { medication?: Medica
           </div>
         </div>
       )}
-      <fieldset className="field-group">
-        <legend>Dosagem</legend>
-        <div className="form-columns">
-          <div className="field-group">
-            <label htmlFor={`${id}-amount`}>Quantidade da dosagem</label>
-            <input id={`${id}-amount`} name="dosageAmount" type="number" inputMode="decimal" min="0.001" max="999999999" step="0.001" value={amount} onChange={(event) => setAmount(event.target.value)} required />
-          </div>
-          <div className="field-group">
-            <label htmlFor={`${id}-dosage-unit`}>Unidade da dosagem</label>
-            <select id={`${id}-dosage-unit`} name="dosageUnit" value={dosageUnit} onChange={(event) => setDosageUnit(event.target.value)}>
-              {DOSAGE_UNITS.map((option) => <option key={option} value={option}>{option}</option>)}
-              <option value="outra">Outra</option>
-            </select>
-          </div>
-        </div>
-        {dosageUnit === "outra" && (
-          <div className="field-group">
-            <label htmlFor={`${id}-custom-unit`}>Outra unidade da dosagem</label>
-            <input id={`${id}-custom-unit`} name="customDosageUnit" value={customDosageUnit} onChange={(event) => setCustomDosageUnit(event.target.value)} maxLength={32} required />
-          </div>
-        )}
-      </fieldset>
+      <MedicationDosageFields medication={medication} />
       <p className="field-hint">Registre a dosagem e as orientações recebidas. O app não calcula nem recomenda doses.</p>
     </fieldset>
   );

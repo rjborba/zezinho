@@ -1,0 +1,62 @@
+.page {
+  max-width: 850px;
+  margin: 0 auto;
+  padding: 24px 16px;
+}
+
+.toolbar { margin-bottom: 20px; }
+.back { display: inline-flex; align-items: center; gap: 6px; color: var(--green); font-weight: 650; }
+.actions { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
+.actions p { margin: 0; font-weight: 650; }
+.hint { margin: 10px 0 0; color: var(--muted); font-size: 0.82rem; line-height: 1.5; }
+.preview { position: relative; height: calc(296mm * var(--preview-scale, 1)); }
+.paper { width: 210mm; height: 296mm; padding: 10mm; background: white; box-shadow: 0 3px 18px #16231c1a; transform: scale(var(--preview-scale, 1)); transform-origin: top left; }
+.sheet { position: relative; width: 190mm; height: 276mm; }
+.content { position: absolute; top: 0; left: 0; width: 100%; color: #1c2a24; font-family: Arial, sans-serif; font-size: 10pt; line-height: 1.3; transform-origin: top left; overflow-wrap: anywhere; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+.sheetHeader { padding-bottom: 15px; border-bottom: 2px solid #2b6049; margin-bottom: 12px; }
+.sheetBrand { display: flex; align-items: center; gap: 6px; color: #2b6049; font-size: 10pt; font-weight: 700; }
+.sheetBrand > span { margin-left: auto; color: #63736a; font-size: 7pt; font-weight: 500; letter-spacing: 0.13em; text-transform: uppercase; }
+.sheetTitle { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 13px; }
+.sheetTitle h1 { margin: 0; color: #203e30; font-size: 23pt; line-height: 1.15; font-weight: 700; letter-spacing: -0.035em; }
+.sheetTitle > span { flex-shrink: 0; border: 1px solid #cddbd1; border-radius: 20px; padding: 5px 9px; font-size: 8pt; color: #405c4b; }
+.sheetHeader p { margin: 8px 0 0; color: #63736a; font-size: 8pt; }
+.sheetHeader p > span { margin: 0 5px; }
+.columnLabels { display: grid; grid-template-columns: 44% 56%; margin-bottom: 8px; color: #63736a; font-size: 7pt; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.columnLabels > span { padding-left: 10px; }
+.timeGroup + .timeGroup { margin-top: 12px; }
+.groupHeader { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 10px; border: 1px solid #dbe5de; border-left: 3px solid #2b6049; border-radius: 5px; background: #edf4ef; }
+.groupHeader h2 { display: flex; align-items: center; gap: 7px; margin: 0; color: #254e39; font-size: 13pt; line-height: 1.1; font-weight: 700; font-variant-numeric: tabular-nums; }
+.groupHeader > span { color: #4f6657; font-size: 8pt; }
+.table { width: 100%; table-layout: fixed; border-collapse: collapse; }
+.nameColumn { width: 44%; }
+.instructionsColumn { width: 56%; }
+.table th, .table td { padding: 8px 10px; border-bottom: 1px solid #e2e8e3; text-align: left; vertical-align: top; }
+.table tbody th { font-weight: 400; }
+.medicationName { font-size: 10pt; line-height: 1.2; font-weight: 700; }
+.dosage { margin-left: 6px; color: #3e5548; font-size: 9pt; }
+.commercialNames { display: block; margin-top: 3px; color: #3e5548; font-size: 9pt; line-height: 1.2; font-weight: 600; }
+.content .specialControlBadge { margin-top: 3px; border-color: #89958b; background: #f3f4f2; color: #233e2d; font-size: 7pt; padding: 1px 5px; }
+.doseDetails { display: flex; align-items: baseline; flex-wrap: wrap; column-gap: 9px; font-size: 9pt; }
+.doseDetails strong { font-weight: 700; }
+.doseDetails > span { color: #4a5c50; }
+.posology { display: block; margin-top: 2px; color: #4a5c50; font-size: 8pt; }
+.instructions { display: block; margin-top: 3px; font-size: 9pt; white-space: pre-wrap; }
+.timingNote { display: block; margin-top: 3px; color: #805326; font-size: 8pt; font-weight: 700; }
+.sheetFooter { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; padding-top: 9px; border-top: 1px solid #cddbd1; color: #63736a; font-size: 7pt; line-height: 1.4; }
+
+@page {
+  size: A4 portrait;
+  margin: 10mm;
+}
+
+@media print {
+  :global(html):has(.page), :global(body):has(.page) { min-height: 0; background: white; }
+  :global(body):has(.page) > :not(:has(.page)):not(.page) { display: none !important; }
+  .page { max-width: none; margin: 0; padding: 0; }
+  .toolbar { display: none; }
+  .preview { height: auto; }
+  .paper { width: 190mm; height: 276mm; padding: 0; box-shadow: none; transform: none; }
+  .sheet { overflow: hidden; }
+  /* Zoom scales layout as well as paint, avoiding fragmented/clipped transformed tables. */
+  .content { position: relative; transform: none !important; zoom: var(--content-scale, 1); }
+}

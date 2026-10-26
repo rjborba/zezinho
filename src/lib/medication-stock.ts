@@ -1,3 +1,4 @@
+import { dosageComponents } from "@/lib/medications";
 import type { InventoryItem, MedicationDetails, StockUnit } from "@/lib/types";
 
 export type MedicationStock = Pick<InventoryItem, "kind" | "medication" | "unit" | "total" | "hasEntries" | "lastRestockedAt">;
@@ -41,9 +42,12 @@ export function medicationStockPerDose(medication: MedicationDetails, unit: Stoc
   if (explicit !== undefined) {
     return Number.isFinite(explicit) && explicit > 0 ? { quantity: explicit, assumed: false } : null;
   }
-  const amount = medication.dosage.amount;
+  const components = dosageComponents(medication);
+  // Ingredient strengths cannot determine how much stock a combination consumes.
+  if (components.length !== 1) return null;
+  const amount = components[0].amount;
   if (!Number.isFinite(amount) || amount <= 0) return null;
-  const dosageUnit = medication.dosage.unit.trim().toLocaleLowerCase("pt-BR").normalize("NFD").replace(/\p{Diacritic}/gu, "");
+  const dosageUnit = components[0].unit.trim().toLocaleLowerCase("pt-BR").normalize("NFD").replace(/\p{Diacritic}/gu, "");
   if (unit === "unidade") {
     if (["unidade", "unidades", "comprimido", "comprimidos", "capsula", "capsulas"].includes(dosageUnit)) {
       return { quantity: amount, assumed: false };
@@ -76,7 +80,7 @@ export function getMedicationRestockForecast(item: MedicationStock, now: Date): 
   if (end !== null && end < today.day) return { status: "ended" };
   if (!item.hasEntries || !item.lastRestockedAt) return unavailable("Registre uma entrada para prever a próxima compra.");
   const restocked = localCalendar(new Date(item.lastRestockedAt));
-  if (!restocked || restocked.day > today.day || !Number.isFinite(item.total) || item.total < 0) {
+  if (!restocked || new Date(item.lastRestockedAt).getTime() > now.getTime() || !Number.isFinite(item.total) || item.total < 0) {
     return unavailable("Revise a quantidade e a data da última entrada.");
   }
 

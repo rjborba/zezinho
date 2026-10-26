@@ -3,14 +3,9 @@
 import { useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, Search } from "lucide-react";
 
+import { matchesCatalogSearch, normalizeSearch } from "@/lib/catalog-search";
+import { medicationTitle } from "@/lib/medications";
 import type { InventoryItem } from "@/lib/types";
-
-function normalizeSearch(value: string) {
-  return value
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLocaleLowerCase("pt-BR");
-}
 
 export function SearchableItemSelect({
   id,
@@ -46,9 +41,7 @@ export function SearchableItemSelect({
       return items;
     }
 
-    return items.filter((item) =>
-      normalizeSearch(item.name).includes(normalizedQuery),
-    );
+    return items.filter((item) => matchesCatalogSearch(item, normalizedQuery));
   }, [items, query, selectedItem?.name]);
 
   function chooseItem(item: InventoryItem) {
@@ -162,9 +155,9 @@ export function SearchableItemSelect({
                 onMouseEnter={() => setActiveIndex(index)}
                 onClick={() => chooseItem(item)}
               >
-                <span>
-                  {item.name}
-                  {item.archivedAt ? " (arquivado)" : ""}
+                <span className="searchable-select-option-label">
+                  <span>{medicationTitle(item.name, item.medication)}{item.archivedAt ? " (arquivado)" : ""}</span>
+                  {!!item.medication?.otherNames?.length && <small>{item.medication.otherNames.join(" · ")}</small>}
                 </span>
                 {item.id === selectedId && <Check aria-hidden="true" size={18} />}
               </button>

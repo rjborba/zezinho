@@ -1,17 +1,30 @@
 import { History } from "lucide-react";
+import { Suspense } from "react";
 
 import { AppShell } from "@/components/app-shell";
 import { EntryCreateDialog } from "@/components/entry-create-dialog";
 import { EntryHistory } from "@/components/entry-history";
+import { ScheduledEntryRefresh } from "@/components/scheduled-entry-refresh";
 import { SetupNotice } from "@/components/setup-notice";
 import { getInventory } from "@/lib/inventory";
 
-export default async function EntriesPage() {
-  const { items, archivedItems, recentEntries, configured, error } =
+export default function EntriesPage() {
+  return (
+    <AppShell>
+      <Suspense fallback={<p className="list-placeholder" role="status">Carregando entradas...</p>}>
+        <EntriesContent />
+      </Suspense>
+    </AppShell>
+  );
+}
+
+async function EntriesContent() {
+  const { items, archivedItems, recentEntries, configured, error, nextScheduledEntryAt } =
     await getInventory();
 
   return (
-    <AppShell>
+    <>
+      <ScheduledEntryRefresh at={nextScheduledEntryAt} />
       <header className="page-header page-header-with-action">
         <div>
           <p className="eyebrow">Movimentação</p>
@@ -34,13 +47,14 @@ export default async function EntriesPage() {
           restou. Assim, estima quanto foi usado por dia nesse intervalo.
         </p>
         <p>A posologia dos medicamentos é apenas informativa e não dá baixa automática no estoque.</p>
+        <p>Entradas futuras ficam agendadas e não alteram o estoque ou a previsão de medicamentos antes da data e hora escolhidas.</p>
       </aside>
 
       <section aria-labelledby="history-title">
         <div className="section-heading">
           <div>
-            <h2 id="history-title">Últimas entradas</h2>
-            <p>Movimentações mais recentes</p>
+            <h2 id="history-title">Histórico e agendamentos</h2>
+            <p>Entradas por data, incluindo compras futuras</p>
           </div>
           <History aria-hidden="true" size={21} />
         </div>
@@ -50,6 +64,6 @@ export default async function EntriesPage() {
           items={[...items, ...archivedItems]}
         />
       </section>
-    </AppShell>
+    </>
   );
 }

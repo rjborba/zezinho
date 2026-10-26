@@ -1,4 +1,4 @@
-import type { MedicationDetails } from "@/lib/types";
+import type { DosageComponent, MedicationDetails } from "@/lib/types";
 
 export const ADMINISTRATION_ROUTES = [
   { value: "oral", label: "Oral" },
@@ -12,6 +12,7 @@ export const ADMINISTRATION_ROUTES = [
 ] as const;
 
 export const DOSAGE_UNITS = ["mg", "ml", "g", "mcg", "UI", "gotas", "comprimidos", "cápsulas", "mg/ml", "%"] as const;
+export const MAX_DOSAGE_COMPONENTS = 10;
 
 export const WEEKDAYS = [
   { value: 1, label: "Seg", full: "Segunda-feira" },
@@ -23,8 +24,20 @@ export const WEEKDAYS = [
   { value: 0, label: "Dom", full: "Domingo" },
 ] as const;
 
-export function dosageLabel(medication: MedicationDetails): string {
-  return `${new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 3 }).format(medication.dosage.amount)} ${medication.dosage.unit}`;
+export function dosageComponents(medication: MedicationDetails): DosageComponent[] {
+  return "components" in medication.dosage ? medication.dosage.components : [medication.dosage];
+}
+
+export function dosageLabel(medication: MedicationDetails, includeIngredients = false): string {
+  const format = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 3 });
+  return dosageComponents(medication).map((component) => {
+    const strength = `${format.format(component.amount)} ${component.unit}`;
+    return includeIngredients && component.ingredient ? `${component.ingredient}: ${strength}` : strength;
+  }).join(" + ");
+}
+
+export function medicationTitle(name: string, medication: MedicationDetails | null): string {
+  return medication ? `${name} ${dosageLabel(medication)}` : name;
 }
 
 export function posologyLabel(medication: MedicationDetails): string {

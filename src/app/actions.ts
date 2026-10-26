@@ -4,6 +4,7 @@ import { revalidatePath, updateTag } from "next/cache";
 
 import type { ActionState } from "@/lib/action-state";
 import { parseCatalogForm } from "@/lib/catalog-validation";
+import { entryTimestampForUpdate, parseEntryDateTime } from "@/lib/entry-dates";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import { isCountUnit } from "@/lib/units";
 
@@ -34,6 +35,7 @@ export async function createItemAction(
 
   revalidatePath("/");
   revalidatePath("/itens");
+  revalidatePath("/medicamentos");
   revalidatePath("/entradas");
   updateTag("inventory");
   return { status: "success", message: `${name} foi cadastrado.` };
@@ -75,6 +77,7 @@ export async function updateItemAction(
   updateTag("inventory");
   revalidatePath("/");
   revalidatePath("/itens");
+  revalidatePath("/medicamentos");
   revalidatePath("/entradas");
   return { status: "success", message: parsed.data.kind === "medicamento" ? "Medicamento atualizado." : "Item atualizado." };
 }
@@ -93,6 +96,11 @@ export async function createEntryAction(
   );
   const quantity = Number(quantityText);
   const remainingQuantity = Number(remainingText);
+  const createdAt = parseEntryDateTime(formData.get("entryDate"));
+
+  if (!createdAt) {
+    return { status: "error", message: "Informe uma data e hora válidas para a entrada." };
+  }
 
   if (!itemId || !Number.isFinite(quantity) || quantity <= 0) {
     return {
@@ -140,6 +148,7 @@ export async function createEntryAction(
       item_id: itemId,
       quantity,
       remaining_quantity: remainingQuantity,
+      created_at: createdAt,
     });
 
   if (error) {
@@ -148,6 +157,7 @@ export async function createEntryAction(
 
   revalidatePath("/");
   revalidatePath("/itens");
+  revalidatePath("/medicamentos");
   revalidatePath("/entradas");
   updateTag("inventory");
   return { status: "success", message: `Entrada de ${item.name} registrada.` };
@@ -167,6 +177,11 @@ export async function updateEntryAction(
   const remainingQuantity = Number(
     String(formData.get("remainingQuantity") ?? "").replace(",", "."),
   );
+  const entryDate = String(formData.get("entryDate") ?? "");
+
+  if (!parseEntryDateTime(entryDate)) {
+    return { status: "error", message: "Informe uma data e hora válidas para a entrada." };
+  }
 
   if (!entryId || !itemId || !Number.isFinite(quantity) || quantity <= 0) {
     return { status: "error", message: "Revise a quantidade comprada." };
@@ -177,11 +192,14 @@ export async function updateEntryAction(
   }
 
   const supabase = getSupabase();
-  const { data: item, error: itemError } = await supabase
-    .from("items")
-    .select("unit,kind")
-    .eq("id", itemId)
-    .single();
+  const [{ data: item, error: itemError }, { data: entry, error: entryError }] = await Promise.all([
+    supabase.from("items").select("unit,kind").eq("id", itemId).single(),
+    supabase.from("stock_entries").select("created_at").eq("id", entryId).maybeSingle(),
+  ]);
+
+  if (entryError || !entry) {
+    return { status: "error", message: "Entrada não encontrada." };
+  }
 
   if (itemError || !item) {
     return { status: "error", message: "Item não encontrado." };
@@ -198,22 +216,30 @@ export async function updateEntryAction(
     return { status: "error", message: "Use números inteiros para unidades ou gotas." };
   }
 
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from("stock_entries")
     .update({
       item_id: itemId,
       quantity,
       remaining_quantity: remainingQuantity,
+      created_at: entryTimestampForUpdate(entryDate, entry.created_at),
     })
-    .eq("id", entryId);
+    .eq("id", entryId)
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     return { status: "error", message: "Não foi possível salvar a alteração." };
   }
 
+  if (!updated) {
+    return { status: "error", message: "Entrada não encontrada." };
+  }
+
   updateTag("inventory");
   revalidatePath("/");
   revalidatePath("/itens");
+  revalidatePath("/medicamentos");
   revalidatePath("/entradas");
   return { status: "success", message: "Entrada atualizada." };
 }
@@ -234,6 +260,7 @@ export async function deleteEntryAction(formData: FormData): Promise<void> {
   updateTag("inventory");
   revalidatePath("/");
   revalidatePath("/itens");
+  revalidatePath("/medicamentos");
   revalidatePath("/entradas");
 }
 
@@ -254,6 +281,7 @@ export async function setItemArchivedAction(formData: FormData): Promise<void> {
 
   revalidatePath("/");
   revalidatePath("/itens");
+  revalidatePath("/medicamentos");
   revalidatePath("/entradas");
   updateTag("inventory");
 }

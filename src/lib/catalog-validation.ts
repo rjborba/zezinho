@@ -1,5 +1,6 @@
-import { ADMINISTRATION_ROUTES, DOSAGE_UNITS } from "@/lib/medications";
-import { MEDICATION_STOCK_UNITS, UNITS, type MedicationDetails, type RecordKind, type StockUnit } from "@/lib/types";
+import { ADMINISTRATION_ROUTES, DOSAGE_UNITS, MAX_DOSAGE_COMPONENTS } from "@/lib/medications";
+import { medicationNamesError, normalizeMedicationNames } from "@/lib/medication-names";
+import { MEDICATION_STOCK_UNITS, UNITS, type DosageComponent, type MedicationDetails, type RecordKind, type StockUnit } from "@/lib/types";
 
 type CatalogRecord = {
   name: string;
@@ -27,6 +28,12 @@ export function parseCatalogForm(formData: FormData): CatalogResult {
   const units: readonly string[] = kind === "item" ? UNITS : MEDICATION_STOCK_UNITS;
   if (!units.includes(unit)) return { error: "Escolha uma unidade de estoque válida." };
   if (kind === "item") return { data: { name, kind, unit: unit as StockUnit, medication: null } };
+
+  const otherNamesValues = formData.getAll("otherNames").map(String);
+  const otherNames = normalizeMedicationNames(otherNamesValues, name);
+  const namesError = medicationNamesError(otherNames);
+  if (namesError) return { error: namesError };
+  if (otherNamesValues.join("\n").length > 1000) return { error: "Use até 1.000 caracteres nos nomes comerciais." };
 
   const posologyType = field("posologyType");
   let posology: MedicationDetails["posology"];
@@ -73,16 +80,33 @@ export function parseCatalogForm(formData: FormData): CatalogResult {
     return { error: "Escolha um período ou tempo indeterminado." };
   }
 
-  const amount = Number(field("dosageAmount").replace(",", "."));
-  const chosenDosageUnit = field("dosageUnit");
-  const dosageUnit = chosenDosageUnit === "outra" ? field("customDosageUnit") : chosenDosageUnit;
-  if (!Number.isFinite(amount) || amount <= 0 || amount > 999999999 || Math.abs(amount * 1000 - Math.round(amount * 1000)) > 0.0001) return { error: "Informe uma dosagem maior que zero, com até 3 casas decimais." };
-  if (!dosageUnit || dosageUnit.length > 32 || (chosenDosageUnit !== "outra" && !(DOSAGE_UNITS as readonly string[]).includes(chosenDosageUnit))) return { error: "Escolha ou informe a unidade da dosagem." };
+  const values = (key: string) => formData.getAll(key).map((value) => String(value).trim());
+  const amounts = values("dosageAmount");
+  const unitsForDosage = values("dosageUnit");
+  const ingredients = values("dosageIngredient");
+  const customUnits = values("customDosageUnit");
+  const legacyForm = ingredients.length === 0 && amounts.length === 1;
+  if (amounts.length < 1 || amounts.length > MAX_DOSAGE_COMPONENTS || unitsForDosage.length !== amounts.length
+    || (!legacyForm && (ingredients.length !== amounts.length || customUnits.length !== amounts.length))
+    || (legacyForm && customUnits.length > 1)) {
+    return { error: `Informe de 1 a ${MAX_DOSAGE_COMPONENTS} componentes, com quantidade e unidade para cada um.` };
+  }
+  const components: DosageComponent[] = [];
+  for (let index = 0; index < amounts.length; index++) {
+    const ingredient = (ingredients[index] ?? "").replace(/\s+/g, " ");
+    const amount = Number(amounts[index].replace(",", "."));
+    const chosenUnit = unitsForDosage[index];
+    const dosageUnit = chosenUnit === "outra" ? customUnits[index] : chosenUnit;
+    if (ingredient.length > 80 || (amounts.length > 1 && !ingredient)) return { error: "Informe o princípio ativo de cada componente em até 80 caracteres." };
+    if (!Number.isFinite(amount) || amount < 0.001 || amount > 999999999 || amount !== Math.round(amount * 1000) / 1000) return { error: "Informe uma dosagem maior que zero, com até 3 casas decimais, para cada componente." };
+    if (!dosageUnit || dosageUnit.length > 32 || (chosenUnit !== "outra" && !(DOSAGE_UNITS as readonly string[]).includes(chosenUnit))) return { error: "Escolha ou informe a unidade da dosagem de cada componente." };
+    components.push({ ...(ingredient ? { ingredient } : {}), amount, unit: dosageUnit });
+  }
 
   const stockPerDoseText = field("stockPerDose");
   const stockPerDose = Number(stockPerDoseText.replace(",", "."));
   if (stockPerDoseText && (!Number.isFinite(stockPerDose) || stockPerDose <= 0 || stockPerDose > 999999999 || Math.abs(stockPerDose * 1000 - Math.round(stockPerDose * 1000)) > 0.0001)) {
     return { error: "Informe uma quantidade de estoque por dose maior que zero, com até 3 casas decimais." };
   }
-  return { data: { name, kind, unit: unit as StockUnit, medication: { posology, administrationRoute, customRoute, period, dosage: { amount, unit: dosageUnit }, ...(stockPerDoseText ? { stockPerDose } : {}) } } };
+  return { data: { name, kind, unit: unit as StockUnit, medication: { otherNames, posology, administrationRoute, customRoute, period, dosage: { components }, ...(stockPerDoseText ? { stockPerDose } : {}) } } };
 }

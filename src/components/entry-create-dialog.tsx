@@ -31,7 +31,7 @@ export function EntryCreateDialog({ items, disabled }: { items: InventoryItem[];
               ) : (
                 <div className="no-items-card">
                   <p>{kind === "medicamento" ? "Cadastre ou desarquive um medicamento antes de registrar uma entrada." : "Cadastre ou desarquive um item antes de registrar uma entrada."}</p>
-                  <Link href="/itens#novo-item" onClick={() => setOpen(false)}>Ir para o cadastro <ArrowRight aria-hidden="true" size={18} /></Link>
+                  <Link href={kind === "medicamento" ? "/medicamentos#novo-medicamento" : "/itens#novo-item"} onClick={() => setOpen(false)}>Ir para o cadastro <ArrowRight aria-hidden="true" size={18} /></Link>
                 </div>
               )}
             </>

@@ -130,6 +130,32 @@ test("unknown concentration, free instructions and missing entries do not fabric
   assert.equal(forecast(stock({ kind: "item", medication: null }), today), null);
 });
 
+test("combination strengths use only the explicit stock quantity per dose", () => {
+  const dosage = { components: [
+    { ingredient: "Sulfametoxazol", amount: 400, unit: "mg" },
+    { ingredient: "Trimetoprim", amount: 80, unit: "mg" },
+  ] };
+  const combination = { dosage, posology: { type: "daily", timesPerDay: 1, times: ["08:00"], notes: "" } };
+  const result = forecast(stock({}, combination), today);
+  assert.equal(result.daysLeft, 30);
+  assert.equal(result.quantityPerDose, 1);
+  assert.equal(result.assumedUnitPerDose, false);
+  assert.equal(forecast(stock({}, { ...combination, stockPerDose: 2 }), today).daysLeft, 15);
+  assert.equal(forecast(stock({}, { ...combination, stockPerDose: 0.5 }), today).daysLeft, 60);
+  for (const unit of ["unidade", "mg", "g", "ml", "gotas"]) {
+    assert.equal(forecast(stock({ unit }, { ...combination, stockPerDose: undefined }), today).status, "unavailable", unit);
+  }
+  assert.equal(forecast(stock({}, { ...combination, stockPerDose: 0 }), today).status, "unavailable");
+});
+
+test("single-component records retain the legacy stock conversions", () => {
+  for (const [unit, amount, dosageUnit] of [["unidade", 500, "mg"], ["unidade", 2, "comprimidos"], ["ml", 5, "ml"], ["g", 500, "mg"]]) {
+    const legacy = stock({ unit }, { stockPerDose: undefined, dosage: { amount, unit: dosageUnit } });
+    const updated = stock({ unit }, { stockPerDose: undefined, dosage: { components: [{ amount, unit: dosageUnit }] } });
+    assert.deepEqual(medicationStockPerDose(updated.medication, unit), medicationStockPerDose(legacy.medication, unit));
+  }
+});
+
 test("legacy schedules use date-only estimates and empty stock is urgent", () => {
   const result = forecast(stock({}, { posology: { type: "daily", timesPerDay: 2, notes: "" } }), today);
   assert.equal(result.buyDate, "2026-10-21");
@@ -213,6 +239,7 @@ test("restored item editors remain usable without action feedback", () => {
     if (specifier === "react") return { ...require("react"), useId: () => "test-editor", useState: (value) => [value, () => {}], useActionState: () => [undefined, () => {}, false] };
     if (specifier === "@/app/actions") return { createItemAction: () => {}, updateItemAction: () => {} };
     if (specifier === "@/components/medication-fields") return { MedicationFields: () => null };
+    if (specifier.startsWith("@/components/")) return loadSource(`${specifier.slice(2)}.tsx`);
     if (specifier.startsWith("@/lib/")) return loadSource(`${specifier.slice(2)}.ts`);
     assert.ok(["react/jsx-runtime", "lucide-react"].includes(specifier), specifier);
     return require(specifier);

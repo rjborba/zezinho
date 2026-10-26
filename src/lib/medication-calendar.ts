@@ -1,22 +1,25 @@
 import type { InventoryItem, MedicationDetails } from "@/lib/types";
 
 export type CalendarView = "day" | "week";
-export type CalendarMedication = Pick<InventoryItem, "id" | "name" | "kind" | "medication" | "archivedAt">;
+export type CalendarMedication = Pick<InventoryItem, "id" | "name" | "kind" | "medication" | "requiresSpecialControl" | "archivedAt">;
 export type MedicationEvent = {
   id: string;
   itemId: string;
   name: string;
   medication: MedicationDetails;
+  requiresSpecialControl: boolean;
   date: string;
   time: string;
   minute: number;
-  column: number;
-  columns: number;
   color: number;
 };
 
-// This is space for a readable card, not the duration of a dose.
-export const EVENT_DISPLAY_MINUTES = 50;
+type MedicationTimeGroup = Pick<MedicationEvent, "time" | "minute"> & { events: MedicationEvent[] };
+type UnscheduledMedication = { item: CalendarMedication; reason: string };
+export type NextMedicationGroup = MedicationTimeGroup & { date: string; minutesUntil: number };
+type CalendarClock = { date: string; minute: number };
+export type CalendarTimingState = "past" | "now" | "next" | "later";
+
 const DAY_MS = 86_400_000;
 const clockFormat = new Intl.DateTimeFormat("en-CA", {
   timeZone: "America/Recife", year: "numeric", month: "2-digit", day: "2-digit",
@@ -52,43 +55,91 @@ export function calendarDateLabel(date: string, options: Intl.DateTimeFormatOpti
   return new Intl.DateTimeFormat("pt-BR", { ...options, timeZone: "UTC" }).format(new Date(`${date}T00:00:00Z`));
 }
 
-function layoutEvents(events: MedicationEvent[]): MedicationEvent[] {
-  events.sort((a, b) => a.minute - b.minute || a.name.localeCompare(b.name, "pt-BR") || a.id.localeCompare(b.id));
-  let group: MedicationEvent[] = [];
-  let columnEnds: number[] = [];
-  let groupEnd = -1;
-  const finishGroup = () => group.forEach((event) => { event.columns = columnEnds.length; });
+export function calendarDurationLabel(minutes: number): string {
+  const days = Math.floor(minutes / 1440);
+  const hours = Math.floor((minutes % 1440) / 60);
+  const remainder = minutes % 60;
+  if (days) return `${days}d${hours ? ` ${hours}h` : ""}`;
+  if (hours) return `${hours}h${remainder ? ` ${remainder}min` : ""}`;
+  return `${remainder}min`;
+}
 
-  for (const event of events) {
-    if (event.minute >= groupEnd) {
-      finishGroup();
-      group = [];
-      columnEnds = [];
+function calendarMinutesUntil(date: string, minute: number, today: CalendarClock): number {
+  return (Date.parse(`${date}T00:00:00Z`) - Date.parse(`${today.date}T00:00:00Z`)) / 60_000 + minute - today.minute;
+}
+
+export function calendarGroupTiming(date: string, minute: number, today: CalendarClock, next: NextMedicationGroup | null): { state: CalendarTimingState; label: string } {
+  const difference = calendarMinutesUntil(date, minute, today);
+  if (difference < 0) return { state: "past", label: `Horário passado · há ${calendarDurationLabel(-difference)}` };
+  if (difference === 0) return { state: "now", label: "Agora" };
+  if (date !== today.date) return { state: "later", label: "Previsto" };
+  if (next?.date === date && next.minute === minute) return { state: "next", label: `Próximo · em ${calendarDurationLabel(difference)}` };
+  return { state: "later", label: "Mais tarde" };
+}
+
+export function getNextMedicationGroup(items: CalendarMedication[], today: CalendarClock): NextMedicationGroup | null {
+  let next: NextMedicationGroup | null = null;
+
+  for (const item of items) {
+    if (item.kind !== "medicamento" || item.archivedAt !== null || !item.medication) continue;
+    const { period, posology } = item.medication;
+    if (posology.type === "free") continue;
+    if (period.type === "range" && (!isCalendarDate(period.startDate) || !isCalendarDate(period.endDate) || period.startDate > period.endDate)) continue;
+    const firstDate = period.type === "range" && period.startDate > today.date ? period.startDate : today.date;
+
+    // A weekly schedule can next occur on the same weekday seven days later.
+    for (let offset = 0; offset <= 7; offset++) {
+      const date = addCalendarDays(firstDate, offset);
+      if (!isCalendarDate(date) || (period.type === "range" && date > period.endDate)) break;
+      const group = getMedicationCalendar([item], [date]).days[0].groups.find((candidate) => date > today.date || candidate.minute >= today.minute);
+      if (!group) continue;
+
+      const minutesUntil = calendarMinutesUntil(date, group.minute, today);
+      if (!next || minutesUntil < next.minutesUntil) {
+        next = { ...group, date, minutesUntil };
+      } else if (minutesUntil === next.minutesUntil) {
+        next.events.push(...group.events);
+      }
+      break;
     }
-    const available = columnEnds.findIndex((end) => end <= event.minute);
-    event.column = available === -1 ? columnEnds.length : available;
-    columnEnds[event.column] = event.minute + EVENT_DISPLAY_MINUTES;
-    groupEnd = Math.max(...columnEnds);
-    group.push(event);
   }
-  finishGroup();
-  return events;
+
+  return next;
+}
+
+function groupEvents(events: MedicationEvent[]): MedicationTimeGroup[] {
+  events.sort((a, b) => a.minute - b.minute || a.name.localeCompare(b.name, "pt-BR") || a.id.localeCompare(b.id));
+  const groups: MedicationTimeGroup[] = [];
+  for (const event of events) {
+    const previous = groups[groups.length - 1];
+    if (previous?.time === event.time) {
+      previous.events.push(event);
+    } else {
+      groups.push({ time: event.time, minute: event.minute, events: [event] });
+    }
+  }
+  return groups;
 }
 
 export function getMedicationCalendar(items: CalendarMedication[], dates: string[]) {
-  const days = dates.map((date) => ({ date, events: [] as MedicationEvent[] }));
-  const unscheduled: { item: CalendarMedication; reason: string }[] = [];
+  const days = dates.map((date) => ({ date, events: [] as MedicationEvent[], unscheduled: [] as UnscheduledMedication[] }));
+  const unscheduled: UnscheduledMedication[] = [];
+  const addUnscheduled = (item: CalendarMedication, reason: string, eligible = days) => {
+    const entry = { item, reason };
+    unscheduled.push(entry);
+    for (const day of eligible) day.unscheduled.push(entry);
+  };
 
   for (const item of items) {
     if (item.kind !== "medicamento" || item.archivedAt !== null) continue;
     const medication = item.medication;
     if (!medication) {
-      unscheduled.push({ item, reason: "Complete os dados do medicamento no cadastro." });
+      addUnscheduled(item, "Complete os dados do medicamento no cadastro.");
       continue;
     }
     const { period, posology } = medication;
     if (period.type === "range" && (!isCalendarDate(period.startDate) || !isCalendarDate(period.endDate) || period.startDate > period.endDate)) {
-      unscheduled.push({ item, reason: "Revise o período de uso no cadastro." });
+      addUnscheduled(item, "Revise o período de uso no cadastro.");
       continue;
     }
     const eligible = days.filter(({ date }) => {
@@ -97,22 +148,23 @@ export function getMedicationCalendar(items: CalendarMedication[], dates: string
     });
     if (!eligible.length) continue;
     if (posology.type === "free") {
-      unscheduled.push({ item, reason: posology.instructions });
+      addUnscheduled(item, posology.instructions, eligible);
       continue;
     }
     const times = posology.times;
     if (!times?.length || times.length !== posology.timesPerDay || times.some((time) => !/^([01]\d|2[0-3]):[0-5]\d$/.test(time))) {
-      unscheduled.push({ item, reason: "Complete os horários das doses no cadastro." });
+      addUnscheduled(item, "Complete os horários das doses no cadastro.", eligible);
       continue;
     }
     const color = Array.from(item.id).reduce((hash, character) => (hash + character.charCodeAt(0)) % 4, 0);
     for (const day of eligible) {
       times.forEach((time, index) => day.events.push({
         id: `${item.id}-${day.date}-${index}`, itemId: item.id, name: item.name, medication,
+        requiresSpecialControl: Boolean(item.requiresSpecialControl),
         date: day.date, time, minute: Number(time.slice(0, 2)) * 60 + Number(time.slice(3)),
-        column: 0, columns: 1, color,
+        color,
       }));
     }
   }
-  return { days: days.map((day) => ({ ...day, events: layoutEvents(day.events) })), unscheduled };
+  return { days: days.map((day) => ({ ...day, groups: groupEvents(day.events) })), unscheduled };
 }

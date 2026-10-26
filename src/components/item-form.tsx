@@ -5,7 +5,9 @@ import { Check, LoaderCircle } from "lucide-react";
 
 import { createItemAction, updateItemAction } from "@/app/actions";
 import { MedicationFields } from "@/components/medication-fields";
+import { MedicationNamesField } from "@/components/medication-names-field";
 import { initialActionState, type ActionState } from "@/lib/action-state";
+import { normalizeMedicationNames } from "@/lib/medication-names";
 import { MEDICATION_STOCK_UNITS, type InventoryItem, type RecordKind, type StockUnit } from "@/lib/types";
 import { unitLabel } from "@/lib/units";
 
@@ -25,6 +27,8 @@ export function ItemForm({
   onPendingChange?: (pending: boolean) => void;
 }) {
   const [name, setName] = useState(item?.name ?? "");
+  const [otherNames, setOtherNames] = useState(item?.medication?.otherNames ?? []);
+  const [otherNameDraft, setOtherNameDraft] = useState("");
   // Radio defaults follow the draft so form resets preserve it after errors.
   const [unit, setUnit] = useState<StockUnit>(item?.unit ?? "unidade");
   const [stockPerDose, setStockPerDose] = useState(item?.medication?.stockPerDose !== undefined ? String(item.medication.stockPerDose) : "");
@@ -36,6 +40,8 @@ export function ItemForm({
         const result = await saveItem(previousState, formData);
         if (result.status === "success") {
           setName(String(formData.get("name") ?? "").trim());
+          setOtherNames(normalizeMedicationNames(formData.getAll("otherNames").map(String), String(formData.get("name") ?? "")));
+          setOtherNameDraft("");
           onSuccess?.(result.message);
         }
         return result;
@@ -63,14 +69,14 @@ export function ItemForm({
       <input type="hidden" name="kind" value={kind} />
 
       <div className="field-group">
-        <label htmlFor={nameId}>{kind === "medicamento" ? "Nome do medicamento" : "Nome do item"}</label>
+        <label htmlFor={nameId}>{kind === "medicamento" ? "Princípio ativo ou associação" : "Nome do item"}</label>
         <input
           id={nameId}
           name="name"
           type="text"
           value={name}
           onChange={(event) => setName(event.target.value)}
-          placeholder={kind === "medicamento" ? "Nome conforme a embalagem" : "Ex.: Sabonete"}
+          placeholder={kind === "medicamento" ? "Ex.: Ondansetrona" : "Ex.: Sabonete"}
           autoComplete="off"
           autoFocus={!item}
           minLength={2}
@@ -79,6 +85,10 @@ export function ItemForm({
           disabled={disabled || pending}
         />
       </div>
+
+      {kind === "medicamento" && (
+        <MedicationNamesField names={otherNames} draft={otherNameDraft} mainName={name} disabled={disabled || pending} onChange={setOtherNames} onDraftChange={setOtherNameDraft} />
+      )}
 
       {kind === "medicamento" && <MedicationFields medication={item?.medication} disabled={disabled || pending} />}
 
@@ -107,8 +117,9 @@ export function ItemForm({
           />
           <p className="field-hint" id={`${nameId}-stock-per-dose-hint`}>
             {unit === "unidade"
-              ? "Informe quantas unidades são usadas por dose, conforme as orientações recebidas. Se a dosagem está em mg e este campo ficar vazio, a previsão considera 1 unidade por dose."
-              : "Informe a quantidade do estoque usada por dose. Se ficar vazio, usamos a dosagem quando as unidades forem compatíveis. Não convertemos mg em ml ou gotas sem essa informação."}
+              ? "Informe quantas unidades são usadas por dose, conforme as orientações recebidas. Para um único componente em mg, deixar vazio faz a previsão considerar 1 unidade por dose."
+              : "Informe a quantidade do estoque usada por dose. Para um único componente, usamos a dosagem quando as unidades forem compatíveis. Não convertemos mg em ml ou gotas sem essa informação."}
+            {" Para medicamentos com mais de um componente, preencha este campo para calcular a próxima compra."}
           </p>
         </div>
       ) : (
