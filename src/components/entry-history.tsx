@@ -49,17 +49,19 @@ function EditableEntryRow({
     items.find((item) => item.id === selectedItemId);
   const availableItems = items.filter((item) => item.kind === entry.kind);
   const countUnit = selectedItem ? isCountUnit(selectedItem.unit) : false;
+  const adjustment = entry.entryType === "adjustment";
 
   return (
     <article className="entry-card">
       <div className="entry-row">
         <div>
           <h3>{entry.itemName}</h3>
+          {adjustment && <span className="adjustment-entry-badge">Ajuste de estoque</span>}
           {entry.kind === "medicamento" && <span className="medication-badge">Medicamento</span>}
-          {entry.scheduled && <span className="scheduled-entry-badge">Agendada</span>}
+          {entry.scheduled && <span className="scheduled-entry-badge">{adjustment ? "Agendado" : "Agendada"}</span>}
           <p>
             <time dateTime={entry.createdAt}>{formatDate(entry.createdAt)}</time>
-            {entry.remainingQuantity !== null && (
+            {!adjustment && entry.remainingQuantity !== null && (
               <>
                 {" · Restavam "}
                 {formatQuantity(entry.remainingQuantity, entry.unit)}{" "}
@@ -69,8 +71,8 @@ function EditableEntryRow({
           </p>
         </div>
         <p className="entry-value">
-          +{formatQuantity(entry.quantity, entry.unit)}{" "}
-          {unitLabel(entry.unit, "short", entry.quantity)}
+          {adjustment ? "Saldo: " : "+"}{formatQuantity(adjustment ? entry.remainingQuantity ?? 0 : entry.quantity, entry.unit)}{" "}
+          {unitLabel(entry.unit, "short", adjustment ? entry.remainingQuantity ?? 0 : entry.quantity)}
         </p>
         <div className="entry-row-actions">
           <button
@@ -89,7 +91,7 @@ function EditableEntryRow({
           <form
             action={deleteEntryAction}
             onSubmit={(event) => {
-              if (!window.confirm("Excluir esta entrada? Essa ação não pode ser desfeita.")) {
+              if (!window.confirm(adjustment ? "Excluir este ajuste? O saldo será recalculado pelo histórico restante. Essa ação não pode ser desfeita." : "Excluir esta entrada? Essa ação não pode ser desfeita.")) {
                 event.preventDefault();
               }
             }}
@@ -104,6 +106,7 @@ function EditableEntryRow({
         <form action={formAction} onReset={(event) => event.preventDefault()} className="entry-edit-form">
           <input type="hidden" name="entryId" value={entry.id} />
           <input type="hidden" name="kind" value={entry.kind} />
+          <input type="hidden" name="entryType" value={entry.entryType ?? "purchase"} />
 
           <div className="field-group">
             <label htmlFor={`item-${entry.id}`}>{entry.kind === "medicamento" ? "Medicamento" : "Item"}</label>
@@ -121,10 +124,11 @@ function EditableEntryRow({
             id={`date-${entry.id}`}
             defaultValue={formatEntryDateTime(entry.createdAt)}
             disabled={pending}
+            adjustment={adjustment}
           />
 
           <div className="entry-edit-grid">
-            <div className="field-group">
+            {adjustment ? <input type="hidden" name="quantity" value="0" /> : <div className="field-group">
               <label htmlFor={`quantity-${entry.id}`}>Comprado</label>
               <div className="quantity-input">
                 <input
@@ -140,10 +144,10 @@ function EditableEntryRow({
                 />
                 <span>{selectedItem ? unitLabel(selectedItem.unit) : ""}</span>
               </div>
-            </div>
+            </div>}
 
             <div className="field-group">
-              <label htmlFor={`remaining-${entry.id}`}>Ainda tinha</label>
+              <label htmlFor={`remaining-${entry.id}`}>{adjustment ? "Saldo total em estoque" : "Ainda tinha"}</label>
               <div className="quantity-input">
                 <input
                   id={`remaining-${entry.id}`}

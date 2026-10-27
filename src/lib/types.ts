@@ -3,6 +3,7 @@ export const MEDICATION_STOCK_UNITS = ["unidade", "ml", "mg", "g", "gotas"] as c
 
 export type StockUnit = (typeof UNITS)[number] | (typeof MEDICATION_STOCK_UNITS)[number];
 export type RecordKind = "item" | "medicamento";
+export type StockEntryType = "purchase" | "adjustment";
 
 export type DosageComponent = {
   ingredient?: string;
@@ -37,11 +38,21 @@ export type InventoryItem = {
   averagePerDay: number | null;
   hasEntries: boolean;
   lastRestockedAt: string | null;
+  stockReferenceAt?: string | null;
+  scheduledStockAdjustment?: { quantity: number; effectiveAt: string };
+  medicationHistory?: MedicationScheduleVersion[];
   archivedAt: string | null;
   createdAt: string;
 };
 
+export type MedicationScheduleVersion = {
+  effectiveAt: string;
+  medication: MedicationDetails | null;
+  unit: StockUnit;
+};
+
 export type StockEntry = {
+  entryType: StockEntryType;
   id: string;
   itemId: string;
   itemName: string;

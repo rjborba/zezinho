@@ -75,7 +75,7 @@ async function HomeContent() {
           <div className="section-heading">
             <div>
               <h2 id={section.id}>{section.title}</h2>
-              <p>{section.singular === "medicamento" ? "Nome, marca, dosagem e estoque" : "Compra mais recente + o que ainda restava"}</p>
+              <p>{section.singular === "medicamento" ? "Saldo estimado e previsão de reposição · toque no saldo para detalhes" : "Compra mais recente + o que ainda restava"}</p>
             </div>
             <Link
               href={section.href}

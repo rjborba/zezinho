@@ -72,7 +72,7 @@ export function MedicationRestockStatus({ forecast, unit }: { forecast: Forecast
         </p>
       )}
       <p className="medication-forecast-basis">
-        Estimativa: {formatQuantity(forecast.quantityPerDose, unit)} {unitLabel(unit)}/dose desde a última entrada.
+        Estimativa: {formatQuantity(forecast.quantityPerDose, unit)} {unitLabel(unit)}/dose desde o último saldo de referência.
         {forecast.assumedUnitPerDose && " Consideramos 1 unidade por dose; confirme no cadastro."}
         {forecast.approximateTimes && " Horários não informados; previsão por dia."}
       </p>
@@ -83,7 +83,8 @@ export function MedicationRestockStatus({ forecast, unit }: { forecast: Forecast
 export function MedicationRestockForecast({ item }: { item: MedicationStock }) {
   // A newly activated entry can be newer than the shared minute snapshot.
   // Refresh immediately so it is not mistaken for a future purchase.
-  useEffect(refreshClock, [item.lastRestockedAt]);
+  const referenceAt = item.stockReferenceAt ?? item.lastRestockedAt;
+  useEffect(refreshClock, [referenceAt]);
   const now = useSyncExternalStore(subscribeToClock, getClock, getServerClock);
   const forecast = now === null ? null : getMedicationRestockForecast(item, new Date(now));
   if (now === null) return <div className="medication-forecast medication-forecast-muted"><p>Calculando próxima compra...</p></div>;

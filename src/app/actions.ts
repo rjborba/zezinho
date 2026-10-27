@@ -5,6 +5,7 @@ import { revalidatePath, updateTag } from "next/cache";
 import type { ActionState } from "@/lib/action-state";
 import { parseCatalogForm } from "@/lib/catalog-validation";
 import { entryTimestampForUpdate, parseEntryDateTime } from "@/lib/entry-dates";
+import { parseStockEntryAmounts } from "@/lib/stock-entry-validation";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import { isCountUnit } from "@/lib/units";
 
@@ -89,32 +90,16 @@ export async function createEntryAction(
   if (!isSupabaseConfigured()) return configurationError();
 
   const itemId = String(formData.get("itemId") ?? "");
-  const quantityText = String(formData.get("quantity") ?? "").replace(",", ".");
-  const remainingText = String(formData.get("remainingQuantity") ?? "").replace(
-    ",",
-    ".",
-  );
-  const quantity = Number(quantityText);
-  const remainingQuantity = Number(remainingText);
+  const parsed = parseStockEntryAmounts(formData);
+  if ("error" in parsed) return { status: "error", message: parsed.error };
+  const { entryType, quantity, remainingQuantity } = parsed.data;
   const createdAt = parseEntryDateTime(formData.get("entryDate"));
 
   if (!createdAt) {
     return { status: "error", message: "Informe uma data e hora válidas para a entrada." };
   }
 
-  if (!itemId || !Number.isFinite(quantity) || quantity <= 0) {
-    return {
-      status: "error",
-      message: "Informe uma quantidade comprada maior que zero.",
-    };
-  }
-
-  if (!Number.isFinite(remainingQuantity) || remainingQuantity < 0) {
-    return {
-      status: "error",
-      message: "Informe quanto ainda restava antes da compra.",
-    };
-  }
+  if (!itemId) return { status: "error", message: "Escolha um item ou medicamento." };
 
   const supabase = getSupabase();
   const { data: item, error: itemError } = await supabase
@@ -146,6 +131,7 @@ export async function createEntryAction(
     .from("stock_entries")
     .insert({
       item_id: itemId,
+      entry_type: entryType,
       quantity,
       remaining_quantity: remainingQuantity,
       created_at: createdAt,
@@ -160,7 +146,7 @@ export async function createEntryAction(
   revalidatePath("/medicamentos");
   revalidatePath("/entradas");
   updateTag("inventory");
-  return { status: "success", message: `Entrada de ${item.name} registrada.` };
+  return { status: "success", message: entryType === "adjustment" ? `Ajuste de ${item.name} registrado.` : `Entrada de ${item.name} registrada.` };
 }
 
 export async function updateEntryAction(
@@ -171,34 +157,29 @@ export async function updateEntryAction(
 
   const entryId = String(formData.get("entryId") ?? "");
   const itemId = String(formData.get("itemId") ?? "");
-  const quantity = Number(
-    String(formData.get("quantity") ?? "").replace(",", "."),
-  );
-  const remainingQuantity = Number(
-    String(formData.get("remainingQuantity") ?? "").replace(",", "."),
-  );
+  const parsed = parseStockEntryAmounts(formData);
+  if ("error" in parsed) return { status: "error", message: parsed.error };
+  const { entryType, quantity, remainingQuantity } = parsed.data;
   const entryDate = String(formData.get("entryDate") ?? "");
 
   if (!parseEntryDateTime(entryDate)) {
     return { status: "error", message: "Informe uma data e hora válidas para a entrada." };
   }
 
-  if (!entryId || !itemId || !Number.isFinite(quantity) || quantity <= 0) {
-    return { status: "error", message: "Revise a quantidade comprada." };
-  }
-
-  if (!Number.isFinite(remainingQuantity) || remainingQuantity < 0) {
-    return { status: "error", message: "Revise quanto ainda restava." };
-  }
+  if (!entryId || !itemId) return { status: "error", message: "Movimentação ou item não encontrado." };
 
   const supabase = getSupabase();
   const [{ data: item, error: itemError }, { data: entry, error: entryError }] = await Promise.all([
     supabase.from("items").select("unit,kind").eq("id", itemId).single(),
-    supabase.from("stock_entries").select("created_at").eq("id", entryId).maybeSingle(),
+    supabase.from("stock_entries").select("created_at,entry_type").eq("id", entryId).maybeSingle(),
   ]);
 
   if (entryError || !entry) {
     return { status: "error", message: "Entrada não encontrada." };
+  }
+
+  if ((entry.entry_type ?? "purchase") !== entryType) {
+    return { status: "error", message: "Não é possível converter uma compra em ajuste ou um ajuste em compra." };
   }
 
   if (itemError || !item) {
@@ -241,7 +222,7 @@ export async function updateEntryAction(
   revalidatePath("/itens");
   revalidatePath("/medicamentos");
   revalidatePath("/entradas");
-  return { status: "success", message: "Entrada atualizada." };
+  return { status: "success", message: entryType === "adjustment" ? "Ajuste atualizado." : "Entrada atualizada." };
 }
 
 export async function deleteEntryAction(formData: FormData): Promise<void> {

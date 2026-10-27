@@ -101,7 +101,7 @@ test("scheduled history entries show their status and existing date in the edito
 test("backdated entries are ordered by their chosen date and leave newer stock unchanged", () => {
   const entries = [entry("2026-10-05T12:00:00", 20, 2), entry("2026-10-01T12:00:00", 30, 5)];
   const before = JSON.stringify(entries);
-  assert.deepEqual(summarize(entries, now), { total: 22, averagePerDay: 8.25, hasEntries: true, lastRestockedAt: entries[0].created_at, nextEntryAt: null });
+  assert.deepEqual(summarize(entries, now), { total: 22, averagePerDay: 8.25, hasEntries: true, lastRestockedAt: entries[0].created_at, stockReferenceAt: entries[0].created_at, nextEntryAt: null });
   assert.equal(JSON.stringify(entries), before);
 });
 
@@ -118,7 +118,7 @@ test("future entries do not replace today's stock, average or last restock", () 
 
 test("only scheduled entries means no current stock, and legacy additive stock ignores future purchases", () => {
   const future = entry("2026-10-07T12:00:00", 100, null);
-  assert.deepEqual(summarize([future], now), { total: 0, averagePerDay: null, hasEntries: false, lastRestockedAt: null, nextEntryAt: future.created_at });
+  assert.deepEqual(summarize([future], now), { total: 0, averagePerDay: null, hasEntries: false, lastRestockedAt: null, stockReferenceAt: null, nextEntryAt: future.created_at });
   assert.equal(summarize([future, entry("2026-10-01T12:00:00", 30, null), entry("2026-10-05T12:00:00", 20, null)], now).total, 50);
 });
 
@@ -182,7 +182,7 @@ test("creation actions save explicit past and future timestamps with quantities 
   for (const entryDate of ["2026-10-01T00:00", "2027-01-01T23:59"]) {
     const { actions, writes, invalidations, form } = actionsFixture();
     assert.equal((await actions.createEntryAction({}, form({ entryDate }))).status, "success");
-    assert.deepEqual(writes, [{ type: "insert", table: "stock_entries", data: { item_id: "item", quantity: 12.5, remaining_quantity: 3, created_at: parseEntryDateTime(entryDate) } }]);
+    assert.deepEqual(writes, [{ type: "insert", table: "stock_entries", data: { item_id: "item", entry_type: "purchase", quantity: 12.5, remaining_quantity: 3, created_at: parseEntryDateTime(entryDate) } }]);
     assert.ok(invalidations.includes("inventory"));
   }
 });
@@ -284,4 +284,114 @@ test("inventory requests re-evaluate the same database snapshot when a scheduled
   assert.equal(activated.nextScheduledEntryAt, null);
   assert.equal(connections, 2);
   assert.equal(JSON.stringify(rows), before);
+});
+
+const adjustment = (date, balance) => ({ ...entry(date, 0, balance), entry_type: "adjustment" });
+
+test("adjustments replace the balance, preserve purchase dates and never count corrections as consumption", () => {
+  const purchase = entry("2026-10-01T12:00:00", 30, 5);
+  for (const balance of [0, 4, 80, 12.5]) {
+    const corrected = adjustment("2026-10-05T23:59:00", balance);
+    const movements = [corrected, purchase];
+    const before = JSON.stringify(movements);
+    const result = summarize(movements, now);
+    assert.equal(result.total, balance);
+    assert.equal(result.lastRestockedAt, purchase.created_at);
+    assert.equal(result.stockReferenceAt, corrected.created_at);
+    assert.equal(result.averagePerDay, null);
+    assert.equal(result.hasEntries, true);
+    assert.equal(JSON.stringify(movements), before);
+    const alone = summarize([corrected], now);
+    assert.equal(alone.total, balance);
+    assert.equal(alone.lastRestockedAt, null);
+  }
+});
+
+test("future adjustments activate at their exact time; edits/deletion and older adjustments use chronological history", () => {
+  const purchase = entry("2026-10-01T12:00:00", 30, 5);
+  const older = adjustment("2026-09-30T23:59:00", 300);
+  const future = adjustment("2026-10-06T23:59:00", 7);
+  const before = summarize([future, purchase, older], now);
+  assert.equal(before.total, 35);
+  assert.equal(before.nextEntryAt, future.created_at);
+  const after = summarize([future, purchase, older], new Date(future.created_at));
+  assert.equal(after.total, 7);
+  assert.equal(after.stockReferenceAt, future.created_at);
+  assert.equal(after.lastRestockedAt, purchase.created_at);
+  assert.equal(summarize([purchase, older], now).total, 35);
+  assert.equal(summarize([adjustment("2026-10-05T23:59:00", 9), purchase], now).total, 9);
+  assert.deepEqual(summarize([future], now).scheduledStockAdjustment, { quantity: 7, effectiveAt: future.created_at });
+  assert.equal(after.scheduledStockAdjustment, undefined);
+  assert.equal(before.scheduledStockAdjustment, undefined);
+  assert.equal(summarize([entry("2026-10-06T22:00:00", 10, 2), future], now).scheduledStockAdjustment, undefined);
+});
+
+test("purchases after adjustments start a new baseline and legacy additive purchases cannot resurrect earlier stock", () => {
+  const purchase = entry("2026-10-01T12:00:00", 30, 5);
+  const corrected = adjustment("2026-10-02T23:59:00", 7);
+  const bought = entry("2026-10-05T12:00:00", 10, 2);
+  assert.equal(summarize([bought, corrected, purchase], now).total, 12);
+  assert.equal(summarize([bought, corrected, purchase], now).averagePerDay, null);
+  const additive = { ...bought, remaining_quantity: null };
+  assert.equal(summarize([additive, corrected, purchase], now).total, 17);
+});
+
+test("medication forecasts use end-of-day adjustment time, not purchase time or earlier doses", () => {
+  const corrected = adjustment("2026-10-26T23:59:00", 2);
+  const medication = { posology: { type: "daily", timesPerDay: 2, times: ["10:00", "21:00"], notes: "" }, period: { type: "indefinite" }, dosage: { amount: 400, unit: "mg" }, stockPerDose: 1 };
+  const referenceNow = new Date("2026-10-27T00:00:00-03:00");
+  const item = { kind: "medicamento", unit: "unidade", medication, ...summarize([corrected], referenceNow) };
+  assert.equal(item.lastRestockedAt, null);
+  assert.equal(forecast(item, referenceNow).buyDate, "2026-10-28");
+  assert.equal(forecast(item, referenceNow).buyTime, "10:00");
+  assert.equal(forecast({ ...item, total: 0 }, referenceNow).buyDate, "2026-10-27");
+});
+
+test("adjustment actions accept zero and dated balances, reject invalid values, and cannot convert purchases", async () => {
+  for (const balance of ["0", "7", "12.5"]) {
+    const { actions, writes, form } = actionsFixture();
+    assert.equal((await actions.createEntryAction({}, form({ entryType: "adjustment", quantity: "0", remainingQuantity: balance, entryDate: "2026-10-26T23:59" }))).status, "success");
+    assert.equal(writes[0].data.entry_type, "adjustment");
+    assert.equal(writes[0].data.quantity, 0);
+    assert.equal(writes[0].data.remaining_quantity, Number(balance));
+    assert.equal(writes[0].data.created_at, "2026-10-27T02:59:00.000Z");
+  }
+  for (const values of [{ remainingQuantity: "" }, { remainingQuantity: "-1" }, { remainingQuantity: "Infinity" }, { quantity: "2" }, { entryType: "invalid" }, { entryDate: "2026-02-29T23:59" }]) {
+    const { actions, writes, form } = actionsFixture();
+    assert.equal((await actions.createEntryAction({}, form({ entryType: "adjustment", quantity: "0", remainingQuantity: "7", ...values }))).status, "error");
+    assert.equal(writes.length, 0);
+  }
+  const fixture = actionsFixture({ item: { unit: "unidade" } });
+  assert.equal((await fixture.actions.createEntryAction({}, fixture.form({ entryType: "adjustment", quantity: "0", remainingQuantity: "1.5" }))).status, "error");
+  assert.equal(fixture.writes.length, 0);
+  const editing = actionsFixture({ previous: { entry_type: "adjustment", created_at: "2026-10-06T15:00:39.123456Z" } });
+  assert.equal((await editing.actions.updateEntryAction({}, editing.form({ entryType: "adjustment", quantity: "0", remainingQuantity: "0" }))).status, "success");
+  assert.equal(editing.writes[0].data.created_at, "2026-10-06T15:00:39.123456Z");
+  assert.equal(editing.writes[0].data.remaining_quantity, 0);
+  assert.equal((await editing.actions.updateEntryAction({}, editing.form())).status, "error");
+  const purchase = actionsFixture();
+  assert.equal((await purchase.actions.updateEntryAction({}, purchase.form({ entryType: "adjustment", quantity: "0" }))).status, "error");
+  assert.equal(purchase.writes.length, 0);
+});
+
+test("adjustment UI labels balances and dates without purchased quantities, including scheduled history editors", () => {
+  const fixture = { id: "item", name: "Teste", unit: "unidade", kind: "item", medication: null };
+  const loader = sourceLoader({
+    react: { ...require("react"), useState: (value) => [value === false ? true : typeof value === "function" ? value() : value, () => {}], useActionState: () => [undefined, () => {}, false] },
+    "react-dom": { useFormStatus: () => ({ pending: false }) },
+    "@/app/actions": { createEntryAction() {}, updateEntryAction() {}, deleteEntryAction() {} },
+    "@/components/searchable-item-select": { SearchableItemSelect: () => null },
+  });
+  const html = renderToStaticMarkup(createElement(loader("components/entry-form.tsx").EntryForm, { items: [fixture], kind: "item", entryType: "adjustment" }));
+  assert.match(html, /Saldo total em estoque/);
+  assert.match(html, /Data e hora de referência do saldo/);
+  assert.match(html, /Confirmar ajuste/);
+  assert.doesNotMatch(html, /Quanto foi comprado/);
+  const history = { id: "entry", itemId: "item", itemName: "Teste", unit: "unidade", kind: "item", entryType: "adjustment", quantity: 0, remainingQuantity: 7, createdAt: "2030-01-01T12:00:00Z", scheduled: true };
+  const historyHtml = renderToStaticMarkup(createElement(loader("components/entry-history.tsx").EntryHistory, { items: [fixture], entries: [history] }));
+  assert.match(historyHtml, /Ajuste de estoque/);
+  assert.match(historyHtml, /Agendado/);
+  assert.match(historyHtml, /Saldo: 7/);
+  assert.doesNotMatch(historyHtml, /Restavam|Comprado|\+0/);
+  assert.match(historyHtml, /Saldo total em estoque/);
 });

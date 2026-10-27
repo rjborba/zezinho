@@ -1,11 +1,12 @@
-export function EntryDateField({ id, defaultValue, disabled = false }: {
+export function EntryDateField({ id, defaultValue, disabled = false, adjustment = false }: {
   id: string;
   defaultValue: string;
   disabled?: boolean;
+  adjustment?: boolean;
 }) {
   return (
     <div className="field-group">
-      <label htmlFor={id}>Data e hora da entrada</label>
+      <label htmlFor={id}>{adjustment ? "Data e hora de referência do saldo" : "Data e hora da entrada"}</label>
       <input
         id={id}
         name="entryDate"
@@ -18,7 +19,7 @@ export function EntryDateField({ id, defaultValue, disabled = false }: {
         required
       />
       <p className="field-hint" id={`${id}-hint`}>
-        Horário de Recife. Pode ser no passado ou no futuro. Entradas futuras só entram no estoque na data e hora escolhidas.
+        Horário de Recife. Pode ser no passado ou no futuro. {adjustment ? "Ajustes futuros só passam a valer na data e hora escolhidas." : "Entradas futuras só entram no estoque na data e hora escolhidas."}
       </p>
     </div>
   );

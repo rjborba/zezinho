@@ -454,6 +454,15 @@ a {
   border-top: 1px solid var(--line);
 }
 
+.stock-urgency-week { background: #fff9db; color: #675316; }
+.stock-urgency-soon { background: #ffe39a; color: #60400b; }
+.stock-urgency-critical { background: #fce2df; color: #9b2520; }
+.home-medication-row.stock-urgency-week { box-shadow: inset 3px 0 #e5c75b; }
+.home-medication-row.stock-urgency-soon { box-shadow: inset 3px 0 #ce910d; }
+.home-medication-row.stock-urgency-critical { box-shadow: inset 3px 0 #c73c32; }
+.home-stock-legend { display: flex; flex-wrap: wrap; gap: 6px; margin: -4px 0 10px; font-size: 0.65rem; }
+.home-stock-legend span { padding: 3px 7px; border-radius: 5px; }
+
 .home-medication-info {
   min-width: 0;
 }
@@ -497,8 +506,37 @@ a {
   font-variant-numeric: tabular-nums;
 }
 
+.medication-stock-button {
+  max-width: 170px;
+  min-height: 44px;
+  padding: 4px 0 4px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.medication-stock-button:hover { background: var(--green-soft); }
+.medication-stock-button:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
+.medication-stock-button small { margin-left: 4px; color: var(--muted); font-size: 0.63rem; }
+.medication-stock-button .home-stock-deadline, .medication-stock-button .home-stock-scheduled { display: block; margin: 3px 0 0; white-space: normal; line-height: 1.4; }
+.medication-stock-button .home-stock-deadline { color: var(--ink); font-weight: 650; text-wrap: balance; }
+.home-medication-row[class*="stock-urgency-"] .home-stock-deadline { color: inherit; }
+.home-medication-row[class*="stock-urgency-"] .medication-stock-button { color: inherit; }
+.home-medication-row[class*="stock-urgency-"] .medication-stock-button:hover { background: #ffffff70; }
+.medication-stock-button.is-exhausted, .medication-stock-button.is-exhausted small { color: var(--danger); }
+.medication-stock-details { display: grid; gap: 16px; color: var(--muted); font-size: 0.88rem; }
+.medication-stock-total { color: var(--green-dark); }
+.medication-stock-total strong { font-size: 1.8rem; font-variant-numeric: tabular-nums; }
+
 .home-medication-quantity > span:not(.sr-only) {
   color: var(--muted);
+}
+
+@media (max-width: 480px) {
+  .medication-stock-button { max-width: 126px; white-space: normal; }
+  .home-medication-row { gap: 8px; padding-inline: 11px; }
 }
 
 .home-medication-quantity .home-medication-no-entry {
@@ -615,6 +653,24 @@ a {
 
 .creation-control {
   display: contents;
+}
+
+.stock-movement-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.adjustment-entry-badge {
+  display: inline-block;
+  margin: 4px 6px 2px 0;
+  padding: 3px 8px;
+  border: 1px solid #bfcfdf;
+  border-radius: 8px;
+  background: #edf2f8;
+  color: #304f70;
+  font-size: 0.72rem;
+  font-weight: 700;
 }
 
 .creation-message {

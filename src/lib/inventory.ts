@@ -3,7 +3,7 @@ import { connection } from "next/server";
 
 import { summarizeStockEntries, type InventoryEntryRow } from "@/lib/inventory-stock";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
-import type { InventoryData, MedicationDetails, RecordKind, StockEntry, StockUnit } from "@/lib/types";
+import type { InventoryData, MedicationDetails, RecordKind, StockEntry, StockEntryType, StockUnit } from "@/lib/types";
 
 const demoItems: InventoryData["items"] = [
   {
@@ -70,6 +70,7 @@ const demoArchivedItems: InventoryData["archivedItems"] = [
 const demoEntries: InventoryData["recentEntries"] = [
   {
     id: "demo-entry-fralda",
+    entryType: "purchase",
     itemId: "demo-fralda",
     itemName: "Fralda",
     unit: "unidade",
@@ -91,9 +92,11 @@ type ItemRow = {
   archived_at: string | null;
   created_at: string;
   stock_entries: InventoryEntryRow[] | null;
+  medication_schedule_history: { effective_at: string; medication: MedicationDetails | null; unit: StockUnit }[] | null;
 };
 
 type EntryRow = {
+  entry_type: StockEntryType;
   id: string;
   item_id: string;
   quantity: number | string;
@@ -116,12 +119,12 @@ async function getInventoryRows(): Promise<{ itemRows: ItemRow[]; entryRows: Ent
     supabase
       .from("items")
       .select(
-        "id,name,unit,kind,requires_special_control,medication,archived_at,created_at,stock_entries(quantity,remaining_quantity,created_at)",
+        "id,name,unit,kind,requires_special_control,medication,archived_at,created_at,stock_entries(quantity,remaining_quantity,created_at,entry_type),medication_schedule_history(effective_at,medication,unit)",
       )
       .order("name"),
     supabase
       .from("stock_entries")
-      .select("id,item_id,quantity,remaining_quantity,created_at,items(name,unit,kind)")
+      .select("id,item_id,quantity,remaining_quantity,created_at,entry_type,items(name,unit,kind)")
       .order("created_at", { ascending: false })
       .limit(20),
   ]);
@@ -163,6 +166,7 @@ export async function getInventory(): Promise<InventoryData> {
         kind: item.kind,
         requiresSpecialControl: item.requires_special_control ?? false,
         medication: item.medication,
+        medicationHistory: (item.medication_schedule_history ?? []).map((version) => ({ effectiveAt: version.effective_at, medication: version.medication, unit: version.unit })),
         createdAt: item.created_at,
         ...stock,
         archivedAt: item.archived_at,
@@ -180,6 +184,7 @@ export async function getInventory(): Promise<InventoryData> {
         return [
           {
             id: entry.id,
+            entryType: entry.entry_type ?? "purchase",
             itemId: entry.item_id,
             itemName: relatedItem.name,
             unit: relatedItem.unit,

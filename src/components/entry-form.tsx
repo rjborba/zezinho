@@ -10,12 +10,13 @@ import { MedicationSummary } from "@/components/medication-summary";
 import { MedicationCommercialNames } from "@/components/medication-commercial-names";
 import { initialActionState, type ActionState } from "@/lib/action-state";
 import { formatEntryDateTime } from "@/lib/entry-dates";
-import type { InventoryItem, RecordKind } from "@/lib/types";
+import type { InventoryItem, RecordKind, StockEntryType } from "@/lib/types";
 import { isCountUnit, unitLabel } from "@/lib/units";
 
 export function EntryForm({
   items,
   kind,
+  entryType = "purchase",
   disabled = false,
   onCancel,
   onSuccess,
@@ -23,6 +24,7 @@ export function EntryForm({
 }: {
   items: InventoryItem[];
   kind: RecordKind;
+  entryType?: StockEntryType;
   disabled?: boolean;
   onCancel?: () => void;
   onSuccess?: (message: string) => void;
@@ -45,15 +47,18 @@ export function EntryForm({
   const [entryDate] = useState(() => formatEntryDateTime(new Date()));
   const [selectedId, setSelectedId] = useState(items[0]?.id ?? "");
   const [quantity, setQuantity] = useState("");
-  const [remainingQuantity, setRemainingQuantity] = useState("0");
+  const [remainingQuantity, setRemainingQuantity] = useState(entryType === "adjustment" ? "" : "0");
   const id = useId();
   const selectedItem = items.find((item) => item.id === selectedId);
   const countUnit = selectedItem ? isCountUnit(selectedItem.unit) : false;
   const label = kind === "medicamento" ? "Medicamento" : "Item";
+  const adjustment = entryType === "adjustment";
 
   return (
-    <form action={formAction} onReset={(event) => event.preventDefault()} className="stack-form" aria-label={`Nova entrada de ${label.toLocaleLowerCase("pt-BR")}`}>
+    <form action={formAction} onReset={(event) => event.preventDefault()} className="stack-form" aria-label={`${adjustment ? "Ajuste de estoque de" : "Nova entrada de"} ${label.toLocaleLowerCase("pt-BR")}`}>
       <input type="hidden" name="kind" value={kind} />
+      <input type="hidden" name="entryType" value={entryType} />
+      {adjustment && <p className="notice">Informe o saldo total na data e hora escolhidas. O ajuste substitui o saldo de referência sem registrar uma compra. Para saldo após as doses do dia, escolha um horário posterior à última dose.</p>}
       <div className="field-group">
         <label htmlFor={`${id}-item`}>{label}</label>
         <SearchableItemSelect
@@ -69,9 +74,9 @@ export function EntryForm({
       {selectedItem?.medication && <><MedicationCommercialNames medication={selectedItem.medication} /><MedicationSummary medication={selectedItem.medication} /></>}
       {kind === "medicamento" && selectedItem && <p className="field-hint">Registre o estoque em {unitLabel(selectedItem.unit, "long")}, sem alterar a dosagem do medicamento.</p>}
 
-      <EntryDateField id={`${id}-date`} defaultValue={entryDate} disabled={disabled || pending} />
+      <EntryDateField id={`${id}-date`} defaultValue={entryDate} disabled={disabled || pending} adjustment={adjustment} />
 
-      <div className="field-group">
+      {adjustment ? <input type="hidden" name="quantity" value="0" /> : <div className="field-group">
         <label htmlFor={`${id}-quantity`}>Quanto foi comprado?</label>
         <div className="quantity-input">
           <input
@@ -89,11 +94,11 @@ export function EntryForm({
           />
           <span>{selectedItem ? unitLabel(selectedItem.unit, "short") : ""}</span>
         </div>
-      </div>
+      </div>}
 
       <div className="field-group">
-        <label htmlFor={`${id}-remaining`}>Quanto ainda tinha?</label>
-        <p className="field-hint">Informe o saldo antes dessa compra, na data escolhida.</p>
+        <label htmlFor={`${id}-remaining`}>{adjustment ? "Saldo total em estoque" : "Quanto ainda tinha?"}</label>
+        <p className="field-hint">{adjustment ? "Quantidade total nessa data, não a diferença. Pode ser zero." : "Informe o saldo antes dessa compra, na data escolhida."}</p>
         <div className="quantity-input">
           <input
             id={`${id}-remaining`}
@@ -121,7 +126,7 @@ export function EntryForm({
       <div className="item-form-actions">
         <button className="button button-primary" type="submit" disabled={disabled || pending}>
           {pending && <LoaderCircle className="spin" aria-hidden="true" size={20} />}
-          {pending ? "Registrando..." : "Confirmar entrada"}
+          {pending ? "Registrando..." : adjustment ? "Confirmar ajuste" : "Confirmar entrada"}
         </button>
         {onCancel && <button className="button button-secondary" type="button" disabled={pending} onClick={onCancel}>Cancelar</button>}
       </div>

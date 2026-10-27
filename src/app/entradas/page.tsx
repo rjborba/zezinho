@@ -48,13 +48,14 @@ async function EntriesContent() {
         </p>
         <p>A posologia dos medicamentos é apenas informativa e não dá baixa automática no estoque.</p>
         <p>Entradas futuras ficam agendadas e não alteram o estoque ou a previsão de medicamentos antes da data e hora escolhidas.</p>
+        <p>Use “Ajustar estoque” para informar um saldo total, inclusive zero, sem registrar compra. Ajustes preservam o histórico e só passam a valer na data escolhida; intervalos que envolvem ajustes não entram na média de consumo.</p>
       </aside>
 
       <section aria-labelledby="history-title">
         <div className="section-heading">
           <div>
             <h2 id="history-title">Histórico e agendamentos</h2>
-            <p>Entradas por data, incluindo compras futuras</p>
+            <p>Compras e ajustes por data, incluindo agendamentos</p>
           </div>
           <History aria-hidden="true" size={21} />
         </div>
