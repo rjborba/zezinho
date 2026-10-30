@@ -7,6 +7,7 @@ type CatalogRecord = {
   unit: StockUnit;
   kind: RecordKind;
   medication: MedicationDetails | null;
+  requires_special_control?: boolean;
 };
 
 type CatalogResult = { data: CatalogRecord } | { error: string };
@@ -28,6 +29,16 @@ export function parseCatalogForm(formData: FormData): CatalogResult {
   const units: readonly string[] = kind === "item" ? UNITS : MEDICATION_STOCK_UNITS;
   if (!units.includes(unit)) return { error: "Escolha uma unidade de estoque válida." };
   if (kind === "item") return { data: { name, kind, unit: unit as StockUnit, medication: null } };
+
+  // Older open forms omit this field; preserve their existing database flag.
+  // The hidden false value also makes unchecking the checkbox an explicit edit.
+  const specialControlValues = formData.getAll("requiresSpecialControl");
+  if (specialControlValues.some((value) => value !== "true" && value !== "false")) {
+    return { error: "Informe uma opção válida para controle especial." };
+  }
+  const specialControl = specialControlValues.length
+    ? { requires_special_control: specialControlValues.includes("true") }
+    : {};
 
   const otherNamesValues = formData.getAll("otherNames").map(String);
   const otherNames = normalizeMedicationNames(otherNamesValues, name);
@@ -108,5 +119,5 @@ export function parseCatalogForm(formData: FormData): CatalogResult {
   if (stockPerDoseText && (!Number.isFinite(stockPerDose) || stockPerDose <= 0 || stockPerDose > 999999999 || Math.abs(stockPerDose * 1000 - Math.round(stockPerDose * 1000)) > 0.0001)) {
     return { error: "Informe uma quantidade de estoque por dose maior que zero, com até 3 casas decimais." };
   }
-  return { data: { name, kind, unit: unit as StockUnit, medication: { otherNames, posology, administrationRoute, customRoute, period, dosage: { components }, ...(stockPerDoseText ? { stockPerDose } : {}) } } };
+  return { data: { name, kind, unit: unit as StockUnit, ...specialControl, medication: { otherNames, posology, administrationRoute, customRoute, period, dosage: { components }, ...(stockPerDoseText ? { stockPerDose } : {}) } } };
 }

@@ -19,7 +19,7 @@ export function ItemForm({
   onSuccess,
   onPendingChange,
 }: {
-  item?: Pick<InventoryItem, "id" | "name" | "unit" | "kind" | "medication">;
+  item?: Pick<InventoryItem, "id" | "name" | "unit" | "kind" | "medication" | "requiresSpecialControl">;
   kind?: RecordKind;
   disabled?: boolean;
   onCancel?: () => void;
@@ -29,6 +29,7 @@ export function ItemForm({
   const [name, setName] = useState(item?.name ?? "");
   const [otherNames, setOtherNames] = useState(item?.medication?.otherNames ?? []);
   const [otherNameDraft, setOtherNameDraft] = useState("");
+  const [requiresSpecialControl, setRequiresSpecialControl] = useState(item?.requiresSpecialControl ?? false);
   // Radio defaults follow the draft so form resets preserve it after errors.
   const [unit, setUnit] = useState<StockUnit>(item?.unit ?? "unidade");
   const [stockPerDose, setStockPerDose] = useState(item?.medication?.stockPerDose !== undefined ? String(item.medication.stockPerDose) : "");
@@ -88,6 +89,25 @@ export function ItemForm({
 
       {kind === "medicamento" && (
         <MedicationNamesField names={otherNames} draft={otherNameDraft} mainName={name} disabled={disabled || pending} onChange={setOtherNames} onDraftChange={setOtherNameDraft} />
+      )}
+
+      {kind === "medicamento" && (
+        <div className="field-group">
+          <input type="hidden" name="requiresSpecialControl" value="false" disabled={disabled || pending} />
+          <label className="special-control-option">
+            <input
+              type="checkbox"
+              name="requiresSpecialControl"
+              value="true"
+              checked={requiresSpecialControl}
+              onChange={(event) => setRequiresSpecialControl(event.target.checked)}
+              disabled={disabled || pending}
+              aria-describedby={`${nameId}-special-control-hint`}
+            />
+            <span>Controle especial</span>
+          </label>
+          <p className="field-hint" id={`${nameId}-special-control-hint`}>Marque quando o medicamento for sujeito a controle especial. A exigência de receita, por si só, não indica controle especial.</p>
+        </div>
       )}
 
       {kind === "medicamento" && <MedicationFields medication={item?.medication} disabled={disabled || pending} />}

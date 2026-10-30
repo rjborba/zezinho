@@ -1179,6 +1179,21 @@ body:has(dialog[open]) {
   line-height: 1.4;
 }
 
+.special-control-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.special-control-option input {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  accent-color: var(--green);
+}
+
 .field-group > input,
 .field-group > select,
 .field-group > textarea,

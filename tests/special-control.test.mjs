@@ -93,6 +93,59 @@ test("normal catalog edits leave the separate database special-control flag unto
   assert.equal(Object.hasOwn(updated, "requires_special_control"), false);
 });
 
+test("catalog actions save explicit special-control choices and preserve omitted flags", async () => {
+  let saved;
+  const { createItemAction, updateItemAction } = loadSource("app/actions.ts", {
+    "next/cache": { revalidatePath() {}, updateTag() {} },
+    "@/lib/supabase": { isSupabaseConfigured: () => true, getSupabase: () => ({ from() {
+      return {
+        insert: async (data) => { saved = data; return { error: null }; },
+        update(data) { saved = data; return this; }, eq() { return this; }, select() { return this; },
+        maybeSingle: async () => ({ data: { id: "medication" }, error: null }),
+      };
+    } }) },
+  });
+  for (const action of [createItemAction, updateItemAction]) {
+    for (const [values, expected] of [[[], undefined], [["false"], false], [["false", "true"], true], [["true"], true]]) {
+      const form = new FormData();
+      for (const [key, value] of Object.entries({
+        itemId: "medication", name: "Lenalidomida", kind: "medicamento", unit: "unidade",
+        posologyType: "daily", timesPerDay: "1", doseTimes: "20:00", administrationRoute: "oral",
+        periodType: "indefinite", dosageAmount: "25", dosageUnit: "mg", stockPerDose: "1",
+      })) form.set(key, value);
+      for (const value of values) form.append("requiresSpecialControl", value);
+      const result = await action(undefined, form);
+      assert.equal(result.status, "success");
+      assert.equal(saved.requires_special_control, expected);
+      assert.equal(Object.hasOwn(saved, "requires_special_control"), expected !== undefined);
+      assert.deepEqual(saved.medication.posology.times, ["20:00"]);
+      assert.equal(saved.medication.stockPerDose, 1);
+
+      saved = undefined;
+      form.set("requiresSpecialControl", "invalid");
+      assert.equal((await action(undefined, form)).status, "error");
+      assert.equal(saved, undefined);
+    }
+  }
+});
+
+test("medication create and edit forms expose the current flag and disable it when saving is unavailable", () => {
+  const { ItemForm } = loadSource("components/item-form.tsx", {
+    "@/app/actions": { createItemAction() {}, updateItemAction() {} },
+  });
+  const render = (props) => renderToStaticMarkup(createElement(ItemForm, props));
+  const checkbox = (html) => html.match(/<input[^>]*type="checkbox"[^>]*name="requiresSpecialControl"[^>]*>/)?.[0];
+  const item = { id: "medication", name: "Lenalidomida", unit: "unidade", kind: "medicamento", medication: null, requiresSpecialControl: true };
+  const createHtml = render({ kind: "medicamento" });
+  assert.ok(checkbox(createHtml));
+  assert.doesNotMatch(checkbox(createHtml), /checked/);
+  assert.match(createHtml, /type="hidden" name="requiresSpecialControl" value="false"/);
+  assert.match(checkbox(render({ item })), /checked/);
+  assert.doesNotMatch(checkbox(render({ item: { ...item, requiresSpecialControl: false } })), /checked/);
+  assert.match(checkbox(render({ item, disabled: true })), /disabled/);
+  assert.equal(checkbox(render({ kind: "item" })), undefined);
+});
+
 test("the shared badge uses readable text and renders nothing for unflagged records", () => {
   const { SpecialControlBadge } = loadSource("components/special-control-badge.tsx", {});
   assert.match(renderToStaticMarkup(createElement(SpecialControlBadge, { required: true })), /Controle especial/);
